@@ -1,0 +1,41 @@
+{
+  "name": "gem5 Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "workspaceFolder": "/workspace",
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
+  ],
+  "runArgs": [
+    "--cap-add=SYS_PTRACE",
+    "--security-opt",
+    "seccomp=unconfined",
+    "--cpus=16",
+    "--memory=28g"
+  ],
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "C_Cpp.default.includePath": [
+          "/opt/gem5/src/**",
+          "/opt/gem5/build/X86/**"
+        ],
+        "C_Cpp.default.compileCommands": "/opt/gem5/build/X86/compile_commands.json",
+        "files.associations": {
+          "*.py": "python",
+          "SConscript": "python",
+          "SConstruct": "python"
+        }
+      },
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-python.python",
+        "ms-python.debugpy"
+      ]
+    }
+  },
+  "postCreateCommand": "echo 'gem5 dev container ready. Binary at /opt/gem5/build/X86/gem5.opt'"
+}
