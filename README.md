@@ -134,71 +134,77 @@ Four benchmarks covering different cache access patterns:
 | 631.deepsjeng_s | Chess engine | Integer | Moderate working set, mix of hits and misses |
 | 657.xz_s | LZMA compression | Mixed | Combination of sequential and random access patterns |
 
-### gem5 commands
+### Running benchmarks
 
-All benchmarks use the same gem5 configuration. Run from each benchmark's
-`run/run_base_refspeed_mytest-m64.0000/` directory.
+Use `scripts/run_benchmarks.sh` to run simulations. Results are saved to
+`/workspace/results/<benchmark>/`.
 
-**619.lbm_s** (streaming fluid dynamics):
 ```bash
-/opt/gem5/build/X86/gem5.opt \
-  /opt/gem5/configs/deprecated/example/se.py \
-  --cmd=./lbm_s_base.mytest-m64 \
-  --options="2000 reference.dat 0 0 200_200_260_ldc.of" \
-  --mem-size=8GB \
-  --cpu-type=DerivO3CPU \
-  --caches --l2cache \
-  --l1d_size=32kB --l1i_size=32kB --l2_size=2MB \
-  --maxinst=50000000
+# Run all 4 benchmarks (each does 50M instructions by default):
+bash scripts/run_benchmarks.sh
+
+# Run specific benchmarks:
+bash scripts/run_benchmarks.sh lbm mcf
+
+# Override instruction count (e.g. quick test with 1M instructions):
+MAXINST=1000000 bash scripts/run_benchmarks.sh lbm
+
+# Sanity test — 1000 instructions, takes a few seconds:
+MAXINST=1000 bash scripts/run_benchmarks.sh lbm
 ```
 
-**605.mcf_s** (pointer-chasing graph optimization):
-```bash
-/opt/gem5/build/X86/gem5.opt \
-  /opt/gem5/configs/deprecated/example/se.py \
-  --cmd=./mcf_s_base.mytest-m64 \
-  --options="inp.in" \
-  --mem-size=8GB \
-  --cpu-type=DerivO3CPU \
-  --caches --l2cache \
-  --l1d_size=32kB --l1i_size=32kB --l2_size=2MB \
-  --maxinst=50000000
+Available benchmark names: `lbm`, `mcf`, `deepsjeng`, `xz`
+
+A successful run ends with:
+`Exiting @ tick ... because a thread reached the max instruction count`
+
+If you see `panic: Unrecognized/invalid instruction`, the binary was compiled with
+`-march=native` instead of `-march=x86-64` — rebuild it (see step 4).
+
+### Where results go
+
+Each run writes to `/workspace/results/<benchmark>/`:
+
+```
+/workspace/results/
+├── lbm/
+│   ├── stats.txt    # all gem5 statistics
+│   ├── config.ini   # full simulation config snapshot
+│   └── sim.log      # stdout/stderr from the run
+├── mcf/
+│   └── ...
+├── deepsjeng/
+│   └── ...
+└── xz/
+    └── ...
 ```
 
-**631.deepsjeng_s** (integer chess engine):
+The `--outdir` flag controls where gem5 writes. The script sets this
+automatically. If you re-run a benchmark, the previous results are overwritten —
+copy or rename the directory first if you want to keep them.
+
+### Comparing results
+
 ```bash
-/opt/gem5/build/X86/gem5.opt \
-  /opt/gem5/configs/deprecated/example/se.py \
-  --cmd=./deepsjeng_s_base.mytest-m64 \
-  --options="ref.txt" \
-  --mem-size=8GB \
-  --cpu-type=DerivO3CPU \
-  --caches --l2cache \
-  --l1d_size=32kB --l1i_size=32kB --l2_size=2MB \
-  --maxinst=50000000
+# Quick summary — L1D and L2 miss rates across all benchmarks:
+grep -E "demandMissRate::total|demandAvgMissLatency::total" \
+    /workspace/results/*/stats.txt | grep "system.cpu.dcache\|system.l2"
+
+# Full stats for a single benchmark:
+grep -E "demandMissRate|demandHits|demandMisses|replacements|demandAvgMissLatency" \
+    /workspace/results/lbm/stats.txt
 ```
 
-**657.xz_s** (LZMA compression):
-```bash
-/opt/gem5/build/X86/gem5.opt \
-  /opt/gem5/configs/deprecated/example/se.py \
-  --cmd=./xz_s_base.mytest-m64 \
-  --options="cpu2006docs.tar.xz 6643 055ce243071129412e9dd0b3b69a21654033a9b723d874b2015c774fac1553d9713be561ca86f74e4f16f22e664fc17a79f30caa5ad2c04fbc447549c2810fae 1036078272 1111795472 4" \
-  --mem-size=8GB \
-  --cpu-type=DerivO3CPU \
-  --caches --l2cache \
-  --l1d_size=32kB --l1i_size=32kB --l2_size=2MB \
-  --maxinst=50000000
-```
+### Running manually (without the script)
 
-### Quick sanity test
-
-Before running a full 50M-instruction simulation, verify the binary works with
-a short run (1000 instructions, takes a few seconds):
+Each gem5 command follows this pattern. Run from the benchmark's
+`run/run_base_refspeed_mytest-m64.0000/` directory:
 
 ```bash
-# Replace <cmd> and <options> with the benchmark's values from above
+cd /workspace/spec2017/benchspec/CPU/<bench>/run/run_base_refspeed_mytest-m64.0000
+
 /opt/gem5/build/X86/gem5.opt \
+  --outdir=/workspace/results/<name> \
   /opt/gem5/configs/deprecated/example/se.py \
   --cmd=./<binary> \
   --options="<args>" \
@@ -206,12 +212,15 @@ a short run (1000 instructions, takes a few seconds):
   --cpu-type=DerivO3CPU \
   --caches --l2cache \
   --l1d_size=32kB --l1i_size=32kB --l2_size=2MB \
-  --maxinst=1000
+  --maxinst=50000000
 ```
 
-You should see `Exiting @ tick ... because a thread reached the max instruction count`.
-If you see `panic: Unrecognized/invalid instruction`, the binary was compiled with
-`-march=native` instead of `-march=x86-64` — rebuild it.
+| Benchmark | `<bench>` | `<binary>` | `<args>` |
+|---|---|---|---|
+| lbm | 619.lbm_s | lbm_s_base.mytest-m64 | `2000 reference.dat 0 0 200_200_260_ldc.of` |
+| mcf | 605.mcf_s | mcf_s_base.mytest-m64 | `inp.in` |
+| deepsjeng | 631.deepsjeng_s | deepsjeng_s_base.mytest-m64 | `ref.txt` |
+| xz | 657.xz_s | xz_s_base.mytest-m64 | `cpu2006docs.tar.xz 6643 055ce...474 1036078272 1111795472 4` |
 
 ---
 
@@ -223,6 +232,7 @@ If you see `panic: Unrecognized/invalid instruction`, the binary was compiled wi
 │   └── run_dsb.py                  # sim config for DSB (fill this in)
 ├── scripts/
 │   ├── build_dsb.sh                # copy files + rebuild gem5
+│   ├── run_benchmarks.sh           # run SPEC benchmarks on gem5
 │   └── run_baselines.sh            # run baseline policies, save stats
 ├── src/replacement_policies/
 │   ├── dsb_rp.hh                   # C++ header
@@ -230,7 +240,7 @@ If you see `panic: Unrecognized/invalid instruction`, the binary was compiled wi
 │   ├── DSBRP.py                    # gem5 SimObject wrapper
 │   └── SConscript                  # gem5 build system registration
 └── results/
-    └── <policy>/
+    └── <benchmark>/
         ├── stats.txt               # gem5 statistics output
         ├── config.ini              # full sim config snapshot
         └── sim.log                 # stdout/stderr from the run
@@ -249,24 +259,13 @@ Edit source → rebuild → simulate → read stats.
 bash /workspace/scripts/build_dsb.sh
 ```
 
-### Simulate
+### Run all benchmarks
 
 ```bash
-# Run DSB
-gem5 --outdir=/workspace/results/dsb /workspace/configs/run_dsb.py
-
-# Run a baseline for comparison
-gem5 --outdir=/workspace/results/lru \
-    /opt/gem5/configs/learning_gem5/part1/two_level.py
+bash /workspace/scripts/run_benchmarks.sh
 ```
 
-### Run all baselines at once
-
-```bash
-bash /workspace/scripts/run_baselines.sh
-```
-
-### Compare stats across policies
+### Compare results
 
 ```bash
 grep -E "demandMissRate|demandHits|demandMisses|replacements|demandAvgMissLatency" \
