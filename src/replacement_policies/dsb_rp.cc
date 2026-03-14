@@ -1,9 +1,9 @@
-#include "bypass_rp.hh"
+#include "dsb_rp.hh"
 
 #include <cassert>
 #include <memory>
 
-#include "DSBRP.hh"
+#include "params/DSBRP.hh"
 #include "sim/cur_tick.hh"
 
 namespace gem5

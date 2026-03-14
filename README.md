@@ -58,15 +58,15 @@ Every implementation cycle:
 ### 1. Copy your files into gem5 and rebuild
 
 ```bash
-cp /workspace/src/replacement_policies/dsb_rp.hh  /opt/gem5/src/mem/cache/replacement_policies/
-cp /workspace/src/replacement_policies/dsb_rp.cc   /opt/gem5/src/mem/cache/replacement_policies/
-cp /workspace/src/replacement_policies/DSBRP.py    /opt/gem5/src/mem/cache/replacement_policies/
-
-# Register in SConscript and ReplacementPolicies.py (one-time, see Milestone 1 notes below)
-
-cd /opt/gem5
-scons build/X86/gem5.opt -j$(nproc)
+bash /workspace/scripts/build_dsb.sh
 ```
+
+This copies `dsb_rp.hh`, `dsb_rp.cc`, and `DSBRP.py` into the gem5 source
+tree and runs scons. Incremental builds only recompile changed files, so after
+the first full build this is fast.
+
+> **One-time setup:** Before `build_dsb.sh` will work, register DSB in gem5's
+> build system (see Milestone 1 notes below). Only needs to be done once.
 
 ### 2. Run a simulation from /workspace
 
