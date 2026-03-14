@@ -28,13 +28,13 @@ After this you can run `gem5` from anywhere instead of using the full path.
 ```
 /workspace/
 ├── configs/
-│   └── run_bypass.py          # sim config for BypassRP (fill this in)
+│   └── run_dsb.py             # sim config for DSBRP (fill this in)
 ├── scripts/
 │   └── run_baselines.sh       # runs baseline policies, saves stats to results/
 ├── src/replacement_policies/
-│   ├── bypass_rp.hh           # C++ header  (your implementation)
-│   ├── bypass_rp.cc           # C++ source  (your implementation)
-│   └── BypassRP.py            # gem5 SimObject wrapper (your implementation)
+│   ├── dsb_rp.hh              # C++ header  (your implementation)
+│   ├── dsb_rp.cc              # C++ source  (your implementation)
+│   └── DSBRP.py               # gem5 SimObject wrapper (your implementation)
 └── results/
     └── <policy>/
         ├── stats.txt           # gem5 statistics output
@@ -58,9 +58,9 @@ Every implementation cycle:
 ### 1. Copy your files into gem5 and rebuild
 
 ```bash
-cp /workspace/src/replacement_policies/bypass_rp.hh  /opt/gem5/src/mem/cache/replacement_policies/
-cp /workspace/src/replacement_policies/bypass_rp.cc   /opt/gem5/src/mem/cache/replacement_policies/
-cp /workspace/src/replacement_policies/BypassRP.py    /opt/gem5/src/mem/cache/replacement_policies/
+cp /workspace/src/replacement_policies/dsb_rp.hh  /opt/gem5/src/mem/cache/replacement_policies/
+cp /workspace/src/replacement_policies/dsb_rp.cc   /opt/gem5/src/mem/cache/replacement_policies/
+cp /workspace/src/replacement_policies/DSBRP.py    /opt/gem5/src/mem/cache/replacement_policies/
 
 # Register in SConscript and ReplacementPolicies.py (one-time, see Milestone 1 notes below)
 
@@ -71,8 +71,8 @@ scons build/X86/gem5.opt -j$(nproc)
 ### 2. Run a simulation from /workspace
 
 ```bash
-# Run with your bypass policy, output to /workspace/results/bypass/
-gem5 --outdir=/workspace/results/bypass /workspace/configs/run_bypass.py
+# Run with your DSB policy, output to /workspace/results/dsb/
+gem5 --outdir=/workspace/results/dsb /workspace/configs/run_dsb.py
 
 # Or run a baseline for comparison
 gem5 --outdir=/workspace/results/lru \
@@ -134,12 +134,12 @@ Every replacement policy inherits from `Base` and implements 4 methods:
 
 1. Add to `/opt/gem5/src/mem/cache/replacement_policies/SConscript`:
    ```python
-   Source('bypass_rp.cc')
+   Source('dsb_rp.cc')
    ```
-   And add `'BypassRP'` to the `SimObject(...)` list.
+   And add `'DSBRP'` to the `SimObject(...)` list.
 
-2. Add `BypassRP` class to `ReplacementPolicies.py` (or keep it in the
-   separate `BypassRP.py` and import it).
+2. Add `DSBRP` class to `ReplacementPolicies.py` (or keep it in the
+   separate `DSBRP.py` and import it).
 
 3. Rebuild: `cd /opt/gem5 && scons build/X86/gem5.opt -j$(nproc)`
 

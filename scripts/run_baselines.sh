@@ -33,7 +33,7 @@ run_sim() {
 run_sim "lru"    "LRURP"
 # run_sim "random" "RandomRP"
 # run_sim "brrip"  "BRRIPRP"
-# run_sim "bypass" "BypassRP"   # uncomment after implementing BypassRP
+# run_sim "dsb"    "DSBRP"      # uncomment after implementing DSBRP
 
 echo ""
 echo "All done. Results in $RESULTS/"
