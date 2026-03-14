@@ -136,22 +136,31 @@ Four benchmarks covering different cache access patterns:
 
 ### Running benchmarks
 
-Use `scripts/run_benchmarks.sh` to run simulations. Results are saved to
-`/workspace/results/<benchmark>/`.
+Use `scripts/run_benchmarks.sh` to run simulations with a given replacement policy.
+Results are saved to `/workspace/results/<policy>/<benchmark>/`.
 
 ```bash
-# Run all 4 benchmarks (each does 50M instructions by default):
-bash scripts/run_benchmarks.sh
+# Run all 4 benchmarks with LRU (50M instructions each):
+bash scripts/run_benchmarks.sh lru
 
 # Run specific benchmarks:
-bash scripts/run_benchmarks.sh lbm mcf
+bash scripts/run_benchmarks.sh lru lbm mcf
 
-# Override instruction count (e.g. quick test with 1M instructions):
-MAXINST=1000000 bash scripts/run_benchmarks.sh lbm
+# Quick sanity test (1000 instructions, a few seconds):
+MAXINST=1000 bash scripts/run_benchmarks.sh lru lbm
 
-# Sanity test — 1000 instructions, takes a few seconds:
-MAXINST=1000 bash scripts/run_benchmarks.sh lbm
+# Run with a different policy:
+bash scripts/run_benchmarks.sh brrip
+bash scripts/run_benchmarks.sh dsb          # after building DSB
 ```
+
+| Short name | gem5 class | Description |
+|---|---|---|
+| `lru` | LRURP | Least Recently Used (baseline) |
+| `brrip` | BRRIPRP | Bimodal Re-Reference Interval Prediction |
+| `random` | RandomRP | Random replacement |
+| `fifo` | FIFORP | First-In First-Out |
+| `dsb` | DSBRP | Dueling Segmented LRU with Bypass (ours) |
 
 Available benchmark names: `lbm`, `mcf`, `deepsjeng`, `xz`
 
@@ -163,64 +172,50 @@ If you see `panic: Unrecognized/invalid instruction`, the binary was compiled wi
 
 ### Where results go
 
-Each run writes to `/workspace/results/<benchmark>/`:
+Results are organized by policy, then benchmark:
 
 ```
 /workspace/results/
-├── lbm/
-│   ├── stats.txt    # all gem5 statistics
-│   ├── config.ini   # full simulation config snapshot
-│   └── sim.log      # stdout/stderr from the run
-├── mcf/
+├── lru/
+│   ├── lbm/
+│   │   ├── stats.txt    # all gem5 statistics
+│   │   ├── config.ini   # full simulation config snapshot
+│   │   └── sim.log      # stdout/stderr from the run
+│   ├── mcf/
+│   ├── deepsjeng/
+│   └── xz/
+├── brrip/
 │   └── ...
-├── deepsjeng/
-│   └── ...
-└── xz/
+└── dsb/
     └── ...
 ```
 
-The `--outdir` flag controls where gem5 writes. The script sets this
-automatically. If you re-run a benchmark, the previous results are overwritten —
-copy or rename the directory first if you want to keep them.
+Re-running a benchmark overwrites previous results for that policy/benchmark
+pair — copy or rename the directory first if you want to keep old results.
 
 ### Comparing results
 
 ```bash
-# Quick summary — L1D and L2 miss rates across all benchmarks:
-grep -E "demandMissRate::total|demandAvgMissLatency::total" \
-    /workspace/results/*/stats.txt | grep "system.cpu.dcache\|system.l2"
+# Miss rates for all benchmarks under one policy:
+grep "demandMissRate::total" /workspace/results/lru/*/stats.txt
 
-# Full stats for a single benchmark:
+# Compare one benchmark across policies:
+grep "system.cpu.dcache.demandMissRate::total" /workspace/results/*/lbm/stats.txt
+
+# Full stats for a single run:
 grep -E "demandMissRate|demandHits|demandMisses|replacements|demandAvgMissLatency" \
-    /workspace/results/lbm/stats.txt
+    /workspace/results/lru/lbm/stats.txt
 ```
 
-### Running manually (without the script)
+### How the policy override works
 
-Each gem5 command follows this pattern. Run from the benchmark's
-`run/run_base_refspeed_mytest-m64.0000/` directory:
+`configs/run_spec.py` wraps gem5's `se.py` and adds a `--rp-type` flag.
+It monkey-patches `CacheConfig.config_cache` to set `replacement_policy` on
+L1D, L1I, and L2 after they are created. The bash script maps short policy
+names (e.g. `lru`) to gem5 class names (e.g. `LRURP`) and passes `--rp-type`.
 
-```bash
-cd /workspace/spec2017/benchspec/CPU/<bench>/run/run_base_refspeed_mytest-m64.0000
-
-/opt/gem5/build/X86/gem5.opt \
-  --outdir=/workspace/results/<name> \
-  /opt/gem5/configs/deprecated/example/se.py \
-  --cmd=./<binary> \
-  --options="<args>" \
-  --mem-size=8GB \
-  --cpu-type=DerivO3CPU \
-  --caches --l2cache \
-  --l1d_size=32kB --l1i_size=32kB --l2_size=2MB \
-  --maxinst=50000000
-```
-
-| Benchmark | `<bench>` | `<binary>` | `<args>` |
-|---|---|---|---|
-| lbm | 619.lbm_s | lbm_s_base.mytest-m64 | `2000 reference.dat 0 0 200_200_260_ldc.of` |
-| mcf | 605.mcf_s | mcf_s_base.mytest-m64 | `inp.in` |
-| deepsjeng | 631.deepsjeng_s | deepsjeng_s_base.mytest-m64 | `ref.txt` |
-| xz | 657.xz_s | xz_s_base.mytest-m64 | `cpu2006docs.tar.xz 6643 055ce...474 1036078272 1111795472 4` |
+To add a new policy, register its gem5 class in the `POLICIES` array in
+`scripts/run_benchmarks.sh`.
 
 ---
 
@@ -229,47 +224,44 @@ cd /workspace/spec2017/benchspec/CPU/<bench>/run/run_base_refspeed_mytest-m64.00
 ```
 /workspace/
 ├── configs/
-│   └── run_dsb.py                  # sim config for DSB (fill this in)
+│   ├── run_spec.py                 # gem5 config wrapper (adds --rp-type to se.py)
+│   └── run_dsb.py                  # standalone DSB sim config (hello world)
 ├── scripts/
 │   ├── build_dsb.sh                # copy files + rebuild gem5
-│   ├── run_benchmarks.sh           # run SPEC benchmarks on gem5
-│   └── run_baselines.sh            # run baseline policies, save stats
+│   └── run_benchmarks.sh           # run SPEC benchmarks with any RP
 ├── src/replacement_policies/
 │   ├── dsb_rp.hh                   # C++ header
 │   ├── dsb_rp.cc                   # C++ source
 │   ├── DSBRP.py                    # gem5 SimObject wrapper
 │   └── SConscript                  # gem5 build system registration
 └── results/
-    └── <benchmark>/
-        ├── stats.txt               # gem5 statistics output
-        ├── config.ini              # full sim config snapshot
-        └── sim.log                 # stdout/stderr from the run
+    └── <policy>/
+        └── <benchmark>/
+            ├── stats.txt           # gem5 statistics output
+            ├── config.ini          # full sim config snapshot
+            └── sim.log             # stdout/stderr from the run
 ```
 
 ---
 
 ## Iteration workflow
 
-Edit source → rebuild → simulate → read stats.
-
-### Edit and rebuild
+Edit source → rebuild → simulate → compare.
 
 ```bash
-# edit src/replacement_policies/dsb_rp.{hh,cc} and/or DSBRP.py, then:
+# 1. Edit DSB source
+#    src/replacement_policies/dsb_rp.{hh,cc} and/or DSBRP.py
+
+# 2. Rebuild gem5
 bash /workspace/scripts/build_dsb.sh
-```
 
-### Run all benchmarks
+# 3. Run baselines + DSB
+bash scripts/run_benchmarks.sh lru
+bash scripts/run_benchmarks.sh brrip
+bash scripts/run_benchmarks.sh dsb
 
-```bash
-bash /workspace/scripts/run_benchmarks.sh
-```
-
-### Compare results
-
-```bash
-grep -E "demandMissRate|demandHits|demandMisses|replacements|demandAvgMissLatency" \
-    /workspace/results/*/stats.txt
+# 4. Compare DSB against baselines
+grep "system.cpu.dcache.demandMissRate::total" /workspace/results/*/lbm/stats.txt
 ```
 
 ---
