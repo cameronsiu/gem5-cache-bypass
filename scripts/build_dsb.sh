@@ -10,9 +10,10 @@ DEST=/opt/gem5/src/mem/cache/replacement_policies
 GEM5=/opt/gem5
 
 echo "==> Copying DSB files to gem5 source tree..."
-cp "$SRC/dsb_rp.hh"  "$DEST/"
-cp "$SRC/dsb_rp.cc"   "$DEST/"
-cp "$SRC/DSBRP.py"    "$DEST/"
+cp "$SRC/dsb_rp.hh"   "$DEST/"
+cp "$SRC/dsb_rp.cc"    "$DEST/"
+cp "$SRC/DSBRP.py"     "$DEST/"
+cp "$SRC/SConscript"   "$DEST/"
 
 echo "==> Building gem5..."
 cd "$GEM5"

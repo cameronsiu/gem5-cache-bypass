@@ -1,17 +1,13 @@
 # gem5-cache-bypass
-CMPT 750 Project — implementing a cache bypass replacement policy in gem5.
+CMPT 750 Project — implementing DSB (Dueling Segmented LRU with adaptive Bypassing) in gem5.
 
 ---
 
-## Environment
+## Setup on a new machine
 
-gem5 is pre-built and lives at `/opt/gem5`. The workspace (`/workspace`) holds
-all project source, configs, scripts, and results.
+gem5 is pre-built at `/opt/gem5`. Do these steps once after cloning or rebuilding the container.
 
-### One-time shell setup
-
-Add gem5 shortcuts to your shell (already done on the dev container, but redo
-this if you switch machines or rebuild the container):
+### 1. Shell shortcuts
 
 ```bash
 echo 'export GEM5=/opt/gem5' >> ~/.bashrc
@@ -19,7 +15,25 @@ echo "alias gem5='/opt/gem5/build/X86/gem5.opt'" >> ~/.bashrc
 source ~/.bashrc
 ```
 
-After this you can run `gem5` from anywhere instead of using the full path.
+### 2. Register DSB in gem5's build system
+
+Copy the workspace files into gem5's source tree (this also handles the SConscript):
+
+```bash
+bash /workspace/scripts/build_dsb.sh
+```
+
+The script copies `dsb_rp.hh`, `dsb_rp.cc`, `DSBRP.py`, and `SConscript` into
+`/opt/gem5/src/mem/cache/replacement_policies/` and runs a full build.
+
+The `SConscript` registers DSB with two entries gem5 needs:
+```python
+SimObject('DSBRP.py', sim_objects=['DSBRP'])  # exposes DSB to Python configs
+Source('dsb_rp.cc')                            # compiles the C++ implementation
+```
+
+The first build takes a while. Incremental rebuilds (after editing source files)
+are fast — scons only recompiles what changed.
 
 ---
 
@@ -28,66 +42,53 @@ After this you can run `gem5` from anywhere instead of using the full path.
 ```
 /workspace/
 ├── configs/
-│   └── run_dsb.py             # sim config for DSBRP (fill this in)
+│   └── run_dsb.py                  # sim config for DSB (fill this in)
 ├── scripts/
-│   └── run_baselines.sh       # runs baseline policies, saves stats to results/
+│   ├── build_dsb.sh                # copy files + rebuild gem5
+│   └── run_baselines.sh            # run baseline policies, save stats
 ├── src/replacement_policies/
-│   ├── dsb_rp.hh              # C++ header  (your implementation)
-│   ├── dsb_rp.cc              # C++ source  (your implementation)
-│   └── DSBRP.py               # gem5 SimObject wrapper (your implementation)
+│   ├── dsb_rp.hh                   # C++ header
+│   ├── dsb_rp.cc                   # C++ source
+│   ├── DSBRP.py                    # gem5 SimObject wrapper
+│   └── SConscript                  # gem5 build system registration
 └── results/
     └── <policy>/
-        ├── stats.txt           # gem5 statistics output
-        ├── config.ini          # full sim config snapshot
-        └── sim.log             # stdout/stderr from the run
+        ├── stats.txt               # gem5 statistics output
+        ├── config.ini              # full sim config snapshot
+        └── sim.log                 # stdout/stderr from the run
 ```
 
 ---
 
 ## Iteration workflow
 
-Every implementation cycle:
+Edit source → rebuild → simulate → read stats.
 
-```
-1. Edit src/replacement_policies/bypass_rp.{hh,cc} and BypassRP.py
-2. Copy files into gem5 source tree and rebuild
-3. Run simulation from /workspace
-4. Read stats from /workspace/results/
-```
-
-### 1. Copy your files into gem5 and rebuild
+### Edit and rebuild
 
 ```bash
+# edit src/replacement_policies/dsb_rp.{hh,cc} and/or DSBRP.py, then:
 bash /workspace/scripts/build_dsb.sh
 ```
 
-This copies `dsb_rp.hh`, `dsb_rp.cc`, and `DSBRP.py` into the gem5 source
-tree and runs scons. Incremental builds only recompile changed files, so after
-the first full build this is fast.
-
-> **One-time setup:** Before `build_dsb.sh` will work, register DSB in gem5's
-> build system (see Milestone 1 notes below). Only needs to be done once.
-
-### 2. Run a simulation from /workspace
+### Simulate
 
 ```bash
-# Run with your DSB policy, output to /workspace/results/dsb/
+# Run DSB
 gem5 --outdir=/workspace/results/dsb /workspace/configs/run_dsb.py
 
-# Or run a baseline for comparison
+# Run a baseline for comparison
 gem5 --outdir=/workspace/results/lru \
     /opt/gem5/configs/learning_gem5/part1/two_level.py
 ```
 
-### 3. Run all baselines at once
+### Run all baselines at once
 
 ```bash
 bash /workspace/scripts/run_baselines.sh
 ```
 
-Results land in `/workspace/results/<policy>/stats.txt`.
-
-### 4. Compare stats across policies
+### Compare stats across policies
 
 ```bash
 grep -E "demandMissRate|demandHits|demandMisses|replacements|demandAvgMissLatency" \
@@ -96,59 +97,39 @@ grep -E "demandMissRate|demandHits|demandMisses|replacements|demandAvgMissLatenc
 
 ---
 
-## Key stats to track
+## Key stats
 
 | Stat | Meaning |
 |---|---|
-| `demandMissRate::total` | Miss rate (lower = better cache use) |
+| `demandMissRate::total` | Miss rate (lower = better) |
 | `demandHits::total` | Total cache hits |
 | `demandMisses::total` | Total cache misses |
 | `replacements` | Number of evictions |
 | `demandAvgMissLatency::total` | Average miss penalty in ticks |
 
-Stats file location after a run: `/workspace/results/<policy>/stats.txt`
+Stats file: `/workspace/results/<policy>/stats.txt`
 
 ---
 
-## Milestone 1 Notes
+## gem5 replacement policy interface
 
-### How gem5 replacement policies work
-
-Every replacement policy inherits from `Base` and implements 4 methods:
+Every policy inherits from `Base` and implements 4 methods:
 
 | Method | Called when | Notes |
 |---|---|---|
-| `invalidate()` | line is invalidated | reset your state |
+| `invalidate()` | line is invalidated | reset your per-line state |
 | `touch()` | cache hit | update reuse predictor |
-| `reset()` | **new line inserted** | bypass decision goes here |
-| `getVictim()` | eviction needed | pick who to evict |
+| `reset()` | new line inserted | bypass decision goes here |
+| `getVictim()` | eviction needed | pick which line to evict |
 
-### LRU (baseline reference)
+Reference implementation: `/opt/gem5/src/mem/cache/replacement_policies/lru_rp.{hh,cc}`
 
-- Tracks `lastTouchTick` per cache line
-- `touch()` / `reset()` set `lastTouchTick = curTick()`
-- `getVictim()` evicts the candidate with the smallest `lastTouchTick`
-- Source: `/opt/gem5/src/mem/cache/replacement_policies/lru_rp.{hh,cc}`
-
-### Registering a new policy (one-time steps)
-
-1. Add to `/opt/gem5/src/mem/cache/replacement_policies/SConscript`:
-   ```python
-   Source('dsb_rp.cc')
-   ```
-   And add `'DSBRP'` to the `SimObject(...)` list.
-
-2. Add `DSBRP` class to `ReplacementPolicies.py` (or keep it in the
-   separate `DSBRP.py` and import it).
-
-3. Rebuild: `cd /opt/gem5 && scons build/X86/gem5.opt -j$(nproc)`
-
-### Hello world baseline stats (LRU, two-level cache)
+### LRU reference stats (hello world, two-level cache)
 
 ```
-system.cpu.dcache.demandMissRate::total       0.064096   # miss rate
-system.cpu.dcache.demandHits::total           1942        # hits
-system.cpu.dcache.demandMisses::total         133         # misses
-system.cpu.dcache.replacements                0           # evictions
-system.cpu.dcache.demandAvgMissLatency::total 106714      # avg miss latency (ticks)
+system.cpu.dcache.demandMissRate::total       0.064096
+system.cpu.dcache.demandHits::total           1942
+system.cpu.dcache.demandMisses::total         133
+system.cpu.dcache.replacements                0
+system.cpu.dcache.demandAvgMissLatency::total 106714
 ```
