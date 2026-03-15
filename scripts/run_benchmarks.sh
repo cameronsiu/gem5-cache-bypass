@@ -33,22 +33,21 @@ POLICIES=(
     [dsb]=DSBRP
 )
 
-# Common gem5 flags
+# Common gem5 flags (--mem-size is set per benchmark below)
 GEM5_COMMON=(
-    --mem-size=8GB
     --cpu-type=DerivO3CPU
     --caches --l2cache
     --l1d_size=32kB --l1i_size=32kB --l2_size=2MB
     --maxinst="$MAXINST"
 )
 
-# Benchmark definitions: spec_dir | binary | options
+# Benchmark definitions: spec_dir | binary | options | mem_size
 declare -A BENCHMARKS
 BENCHMARKS=(
-    [lbm]="619.lbm_s|lbm_s_base.mytest-m64|2000 reference.dat 0 0 200_200_260_ldc.of"
-    [mcf]="605.mcf_s|mcf_s_base.mytest-m64|inp.in"
-    [deepsjeng]="631.deepsjeng_s|deepsjeng_s_base.mytest-m64|ref.txt"
-    [xz]="657.xz_s|xz_s_base.mytest-m64|cpu2006docs.tar.xz 6643 055ce243071129412e9dd0b3b69a21654033a9b723d874b2015c774fac1553d9713be561ca86f74e4f16f22e664fc17a79f30caa5ad2c04fbc447549c2810fae 1036078272 1111795472 4"
+    [lbm]="619.lbm_s|lbm_s_base.mytest-m64|2000 reference.dat 0 0 200_200_260_ldc.of|8GB"
+    [mcf]="605.mcf_s|mcf_s_base.mytest-m64|inp.in|8GB"
+    [deepsjeng]="631.deepsjeng_s|deepsjeng_s_base.mytest-m64|ref.txt|8GB"
+    [xz]="657.xz_s|xz_s_base.mytest-m64|cpu2006docs.tar.xz 6643 055ce243071129412e9dd0b3b69a21654033a9b723d874b2015c774fac1553d9713be561ca86f74e4f16f22e664fc17a79f30caa5ad2c04fbc447549c2810fae 1036078272 1111795472 4|16GB"
 )
 
 # --- Parse arguments ---
@@ -82,6 +81,7 @@ run_bench() {
     local bench_dir=$2
     local binary=$3
     local options=$4
+    local mem_size=$5
     local outdir=$RESULTS/$POLICY/$name
     local rundir=$SPEC/$bench_dir/run/run_base_refspeed_mytest-m64.0000
 
@@ -91,7 +91,7 @@ run_bench() {
         return 1
     fi
 
-    echo "==> [$POLICY/$name] Starting (maxinst=$MAXINST) ..."
+    echo "==> [$POLICY/$name] Starting (maxinst=$MAXINST, mem=$mem_size) ..."
     mkdir -p "$outdir"
 
     (cd "$rundir" && \
@@ -100,6 +100,7 @@ run_bench() {
             --rp-type="$RP_CLASS" \
             --cmd="./$binary" \
             --options="$options" \
+            --mem-size="$mem_size" \
             "${GEM5_COMMON[@]}" \
     ) 2>&1 | tee "$outdir/sim.log"
 
@@ -115,8 +116,8 @@ for name in "${SELECTED[@]}"; do
         exit 1
     fi
 
-    IFS='|' read -r bench_dir binary options <<< "$entry"
-    run_bench "$name" "$bench_dir" "$binary" "$options"
+    IFS='|' read -r bench_dir binary options mem_size <<< "$entry"
+    run_bench "$name" "$bench_dir" "$binary" "$options" "$mem_size"
 done
 
 echo "========================================="
