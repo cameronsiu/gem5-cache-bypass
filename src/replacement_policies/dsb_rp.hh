@@ -20,10 +20,23 @@ class DSB : public Base
         /** Tick on which the entry was last touched. */
         Tick lastTouchTick;
 
+        // SLRU
+        // Referenced-list and non-referenced-list
+        // Non-referenced list
+        // reference bit
+        // The point of the reference bit is to separate
+        // cache lines that have been hit before and have never been hit
+        // These unreferenced cache lines will be looked at first to be victims
+        // if all lines are referenced, we fall back to LRU
+        bool referenceBit;
+
+        // Random promotion
+        double promotionProbability = 1/32;
+
         /**
          * Default constructor. Invalidate data.
          */
-        DSBReplData() : lastTouchTick(0) {}
+        DSBReplData() : lastTouchTick(0), referenceBit(0) {}
     };
 
   public:
