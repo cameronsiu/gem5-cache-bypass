@@ -47,31 +47,15 @@ DSB::reset(const std::shared_ptr<ReplacementData>& replacement_data) const
   // Set last touch timestamp
   std::static_pointer_cast<DSBReplData>(
     replacement_data)->lastTouchTick = curTick();
+  
+  std::static_pointer_cast<DSBReplData>(
+    replacement_data)->referenceBit = 0;
 
   // Random promotion
   if (random_mt.random<unsigned>(1, 32) == 1) {
     std::static_pointer_cast<DSBReplData>(
       replacement_data)->referenceBit = 1;
   }
-
-  // Aging
-  // loop through each cache line
-  // and set referenceBit to 0 for worst lastTouchTick
-  /*
-  
-  ReplaceableEntry* referenceLine = referenceList[0];
-  for (const auto& rL : referenceList) {
-    if (std::static_pointer_cast<LRUReplData>(
-        rL->replacementData)->lastTouchTick <
-        std::static_pointer_cast<LRUReplData>(
-          victim->replacementData)->lastTouchTick) {
-      referenceLine = rL;
-    }
-  }
-  std::static_pointer_cast<DSBReplData>(
-      replacement_data)->referenceBit = 0;
-  
-  */
 }
 
 ReplaceableEntry*
@@ -80,7 +64,40 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
   // There must be at least one replacement candidate
   assert(candidates.size() > 0);
 
-  // 
+  // Aging
+  // loop through each cache line
+  // and set referenceBit to 0 for worst lastTouchTick
+  // find first candidate with reference bit == 1
+  ReplaceableEntry* referenceVictim = NULL; // victim to age
+  ReplaceableEntry* nonReferenceVictim = NULL; // victim to evict
+  for (const auto& candidate : candidates) {
+    if (std::static_pointer_cast<DSBReplData>(
+        candidate->replacementData)->referenceBit == 1) {
+      // set first reference victim
+      if (referenceVictim == NULL) {
+        referenceVictim = candidate;
+      } else {
+        if (std::static_pointer_cast<DSBReplData>(
+          candidate->replacementData)->lastTouchTick <
+          std::static_pointer_cast<DSBReplData>(
+            referenceVictim->replacementData)->lastTouchTick) {
+          referenceVictim = candidate;
+        }
+      }
+    } else {
+      // set first non reference victim
+      if (nonReferenceVictim == NULL) {
+        nonReferenceVictim = candidate;
+      } else {
+        if (std::static_pointer_cast<DSBReplData>(
+          candidate->replacementData)->lastTouchTick <
+          std::static_pointer_cast<DSBReplData>(
+            nonReferenceVictim->replacementData)->lastTouchTick) {
+          nonReferenceVictim = candidate;
+        }
+      }
+    }
+  }
 
 
   // competitor tag
@@ -88,16 +105,16 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
   // on a cache miss, do we bypass?
   // How do we change the gem5 internals to bypass
 
-  // Visit all candidates to find victim
+
   ReplaceableEntry* victim = candidates[0];
-  for (const auto& candidate : candidates) {
-    // Update victim entry if necessary
-    if (std::static_pointer_cast<DSBReplData>(
-      candidate->replacementData)->lastTouchTick <
-      std::static_pointer_cast<DSBReplData>(
-        victim->replacementData)->lastTouchTick) {
-      victim = candidate;
-    }
+  // Age
+  if (referenceVictim != NULL) {
+    std::static_pointer_cast<DSBReplData>(
+            referenceVictim->replacementData)->referenceBit = 0;
+    victim = referenceVictim;
+  } 
+  if (nonReferenceVictim != NULL) {
+    victim = nonReferenceVictim;
   }
 
   return victim;
