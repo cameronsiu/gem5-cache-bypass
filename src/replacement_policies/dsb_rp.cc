@@ -52,7 +52,7 @@ DSB::reset(const std::shared_ptr<ReplacementData>& replacement_data) const
     replacement_data)->referenceBit = 0;
 
   // Random promotion
-  if (random_mt.random<unsigned>(1, 32) == 1) {
+  if (randomPromotion > 0 && random_mt.random<unsigned>(1, 2^randomPromotion) == 1) {
     std::static_pointer_cast<DSBReplData>(
       replacement_data)->referenceBit = 1;
   }
@@ -99,13 +99,7 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
     }
   }
 
-
-  // competitor tag
-  // competitor way
-  // on a cache miss, do we bypass?
-  // How do we change the gem5 internals to bypass
-
-
+  // Choose victim
   ReplaceableEntry* victim = candidates[0];
   // Age
   if (referenceVictim != NULL) {
@@ -116,6 +110,45 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
   if (nonReferenceVictim != NULL) {
     victim = nonReferenceVictim;
   }
+
+
+  // Decide whether to bypass
+  // 1 Competitor Info per set
+  uint32_t victimSet = victim->getSet();
+  uint32_t victimWay = victim->getWay();
+  CompetitorInfo competitorInfo = competitorMap.at(victimSet);
+
+  // How do I get incoming tag?
+  // static_cast<TaggedEntry*>(victim)->getTag()
+  // Update bypass probabilities
+  // TODO: Need to modify gem5 to get more info
+
+  
+  // bypass
+  if (random_mt.random<unsigned>(1, 2^bypass_counter) == 1) {
+    // don't insert somehow
+    // get the competitor info for the victim
+    // start the bypass
+    competitorInfo.competitorValid = true;
+    // competitorInfo.competitorTag = inserted line
+    competitorInfo.competitorWay = victimWay;
+    competitorInfo.isVirtualBypass = false;
+  } else {
+    // virtual bypass
+    if (random_mt.random<unsigned>(1, 2^virtual_bypass_counter) == 1) {
+      competitorInfo.competitorValid = true;
+      // competitorInfo.competitorTag = inserted line
+      competitorInfo.competitorWay = victimWay;
+      competitorInfo.isVirtualBypass = true;
+    } else {
+      // don't bypass nor virtual bypass
+      // make sure victim's competitorInfo is set to competitor valid false
+      competitorInfo.competitorValid = false;
+    }
+    
+  }
+
+  // How do we change the gem5 internals to bypass
 
   return victim;
 }
