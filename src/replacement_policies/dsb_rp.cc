@@ -52,22 +52,20 @@ DSB::touch(const std::shared_ptr<ReplacementData>& replacement_data) const
     CompetitorInfo& competitorInfo = competitorMap.at(set);
     if (competitorInfo.competitorValid) {
       // Bypass was successful
-      if (!competitorInfo.isVirtualBypass) {
-        if (way == competitorInfo.competitorWay) {
-          bypass_counter -= 1; // saturate
-          bypass_counter = std::max(0, std::min(bypass_counter, 6));
-          competitorInfo.competitorValid = false;
-        } 
-      } else {
-        // successful virtual bypass
-        // you hit the inserted line
-        // competitor Tag is the hit
-        auto* blk = static_cast<CacheBlk*>(entry);
-        Addr tag = blk->getTag();
-        if (tag == competitorInfo.competitorTag) {
-          competitorInfo.competitorValid = false; 
-          // TODO: figure out what else to do here
+      if (way == competitorInfo.competitorWay) {
+        if (!competitorInfo.isVirtualBypass) {
+          // way is the victim
+          // this means that we should bypass
+          bypass_counter -= 1;
+        } else {
+          // successful virtual bypass
+          // inserted line got hit
+          // way is the inserted line
+          // this means that we shouldn't bypass
+          bypass_counter += 1;
         }
+        bypass_counter = std::max(0, std::min(bypass_counter, 6));
+        competitorInfo.competitorValid = false; 
       }
     }
   }
@@ -76,17 +74,47 @@ DSB::touch(const std::shared_ptr<ReplacementData>& replacement_data) const
 void
 DSB::reset(const std::shared_ptr<ReplacementData>& replacement_data) const
 {
+  auto replData = std::static_pointer_cast<DSBReplData>(replacement_data);
+
   // Set last touch timestamp
-  std::static_pointer_cast<DSBReplData>(
-    replacement_data)->lastTouchTick = curTick();
+  replData->lastTouchTick = curTick();
   
-  std::static_pointer_cast<DSBReplData>(
-    replacement_data)->referenceBit = 0;
+  // Set to non-reference list
+  replData->referenceBit = 0;
 
   // Random promotion
-  if (randomPromotion > 0 && random_mt.random<unsigned>(1, 2^randomPromotion) == 1) {
-    std::static_pointer_cast<DSBReplData>(
-      replacement_data)->referenceBit = 1;
+  if (randomPromotion > 0 && random_mt.random<unsigned>(1, 1u << randomPromotion) == 1) {
+    replData->referenceBit = 1;
+  }
+
+  ReplaceableEntry* entry = replData->entry;
+  if (entry != NULL) {
+    // resolve
+    uint32_t set = entry->getSet();
+    CompetitorInfo& competitorInfo = competitorMap.at(set);
+    Addr tag = static_cast<TaggedEntry*>(entry)->getTag();
+
+    if (competitorInfo.competitorValid) {
+      // Bypass was not successful
+      if (competitorInfo.startBypass) {
+        competitorInfo.competitorTag = tag;
+        competitorInfo.startBypass = false;
+      } else if (tag == competitorInfo.competitorTag) {
+        if (!competitorInfo.isVirtualBypass) {
+          // tag is the inserted line
+          // we shouldn't bypass
+          bypass_counter += 1;
+        } else {
+          // not successful virtual bypass
+          // inserted line got hit
+          // way is the inserted line
+          // we should bypass
+          bypass_counter -= 1;
+        }
+        bypass_counter = std::max(0, std::min(bypass_counter, 6));
+        competitorInfo.competitorValid = false; 
+      }
+    }
   }
 }
 
@@ -149,46 +177,39 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
     victim = nonReferenceVictim;
   }
 
-
   // Decide whether to bypass
   // 1 Competitor Info per set
   uint32_t victimSet = victim->getSet();
   uint32_t victimWay = victim->getWay();
   CompetitorInfo& competitorInfo = competitorMap.at(victimSet);
 
-  // How do I get incoming tag?
-  // 
-  // Update bypass probabilities
-  // TODO: Need to modify gem5 to get more info
-
-  
   // bypass
-  if (random_mt.random<unsigned>(1, 2^bypass_counter) == 1) {
+  if (random_mt.random<unsigned>(1, 1u << bypass_counter) == 1) {
     // don't insert somehow
     // get the competitor info for the victim
     // start the bypass
     competitorInfo.competitorValid = true;
-    // competitorInfo.competitorTag = inserted line
+    competitorInfo.startBypass = true;
     competitorInfo.competitorWay = victimWay;
     competitorInfo.isVirtualBypass = false;
+    // set competitorTag in reset()
   } else {
     // virtual bypass
-    if (random_mt.random<unsigned>(1, 2^virtual_bypass_counter) == 1) {
+    if (random_mt.random<unsigned>(1, 1u << virtual_bypass_counter) == 1) {
       competitorInfo.competitorValid = true;
       // competitor tag is the victim now
-      // TODO: add imports
+      competitorInfo.startBypass = false;
       competitorInfo.competitorTag = static_cast<TaggedEntry*>(victim)->getTag();
-      competitorInfo.competitorWay = victimWay; // TODO: is this correct?
+      competitorInfo.competitorWay = victimWay;
       competitorInfo.isVirtualBypass = true;
     } else {
       // don't bypass nor virtual bypass
       // make sure victim's competitorInfo is set to competitor valid false
       competitorInfo.competitorValid = false;
     }
-    
   }
 
-  // How do we change the gem5 internals to bypass
+  // TODO: Change the gem5 internals to bypass
 
   return victim;
 }

@@ -10,6 +10,7 @@ struct DSBRPParams;
 
 struct CompetitorInfo {
   bool     competitorValid; // whether a bypass episode is currently active
+  bool     startBypass;     // whehter a bypass started
   Addr     competitorTag;   // tag of bypassed line (line that we would have inserted)
   uint32_t competitorWay;   // way of victim line (line that we would have replaced)
   bool     isVirtualBypass; // true if we did not bypass, false if we did not
