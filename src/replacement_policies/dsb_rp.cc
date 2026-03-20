@@ -21,24 +21,47 @@ DSB::DSB(const Params &p)
 void
 DSB::invalidate(const std::shared_ptr<ReplacementData>& replacement_data)
 {
-  // Reset last touch timestamp
-  std::static_pointer_cast<DSBReplData>(
-    replacement_data)->lastTouchTick = Tick(0);
+  auto replData = std::static_pointer_cast<DSBReplData>(replacement_data);
 
-  std::static_pointer_cast<DSBReplData>(
-    replacement_data)->referenceBit = 0;
+  // Reset last touch timestamp
+  replData->lastTouchTick = Tick(0);
+
+  // Reset reference bit to non-reference list
+  replData->referenceBit = 0;
 }
 
 void
 DSB::touch(const std::shared_ptr<ReplacementData>& replacement_data) const
 {
+  auto replData = std::static_pointer_cast<DSBReplData>(replacement_data);
+
   // Update last touch timestamp
-  std::static_pointer_cast<DSBReplData>(
-    replacement_data)->lastTouchTick = curTick();
-  
+  replData->lastTouchTick = curTick();
+
   // Update reference
-  std::static_pointer_cast<DSBReplData>(
-    replacement_data)->referenceBit = 1;
+  replData->referenceBit = 1;
+
+  ReplaceableEntry* entry = replData->entry;
+
+  if (entry != NULL) {
+    // resolve
+    uint32_t set = entry->getSet();
+    uint32_t way = entry->getWay();
+
+    CompetitorInfo& competitorInfo = competitorMap.at(set);
+    if (competitorInfo.competitorValid) {
+      if (way == competitorInfo.competitorWay) {
+        // Bypass was successful
+        if (!competitorInfo.isVirtualBypass) {
+          bypass_counter -= 1; // saturate
+          bypass_counter = std::max(0, std::min(bypass_counter, 6));
+          competitorInfo.competitorValid = false;
+        } else {
+          
+        }
+      }
+    }
+  }
 }
 
 void
@@ -71,6 +94,12 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
   ReplaceableEntry* referenceVictim = NULL; // victim to age
   ReplaceableEntry* nonReferenceVictim = NULL; // victim to evict
   for (const auto& candidate : candidates) {
+    
+    // Must save replacement entry into data 
+    std::static_pointer_cast<DSBReplData>(
+        candidate->replacementData)->entry = candidate;
+    
+    
     if (std::static_pointer_cast<DSBReplData>(
         candidate->replacementData)->referenceBit == 1) {
       // set first reference victim
@@ -116,7 +145,7 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
   // 1 Competitor Info per set
   uint32_t victimSet = victim->getSet();
   uint32_t victimWay = victim->getWay();
-  CompetitorInfo competitorInfo = competitorMap.at(victimSet);
+  CompetitorInfo& competitorInfo = competitorMap.at(victimSet);
 
   // How do I get incoming tag?
   // static_cast<TaggedEntry*>(victim)->getTag()

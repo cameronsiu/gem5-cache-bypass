@@ -35,17 +35,15 @@ class DSB : public Base
         // if all lines are referenced, we fall back to LRU
         bool referenceBit;
 
-        // Random promotion
-
-        uint32_t set;
+        ReplaceableEntry* entry;
 
         /**
          * Default constructor. Invalidate data.
          */
-        DSBReplData() : lastTouchTick(0), referenceBit(0), set(0) {}
+        DSBReplData() : lastTouchTick(0), referenceBit(0), entry(NULL) {}
     };
 
-    std::unordered_map<uint32_t, CompetitorInfo> competitorMap;
+    std::unordered_map<uint32_t, CompetitorInfo&> competitorMap;
 
     // CONFIG 1
     const int randomPromotion = 0; // 2^0 = 1
