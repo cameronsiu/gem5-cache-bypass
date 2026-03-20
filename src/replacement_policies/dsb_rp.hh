@@ -8,6 +8,14 @@ namespace gem5
 
 struct DSBRPParams;
 
+struct CompetitorInfo {
+  bool     competitorValid = false; // whether a bypass episode is currently active
+  bool     startBypass = false;     // whehter a bypass started
+  Addr     competitorTag = 0;   // tag of bypassed line (line that we would have inserted)
+  uint32_t competitorWay = 0;   // way of victim line (line that we would have replaced)
+  bool     isVirtualBypass = false; // true if we did not bypass, false if we did not
+};
+
 namespace replacement_policy
 {
 
@@ -20,11 +28,28 @@ class DSB : public Base
         /** Tick on which the entry was last touched. */
         Tick lastTouchTick;
 
+        // SLRU
+        // Referenced-list and non-referenced-list
+        // The point of the reference bit is to separate
+        // cache lines that have been hit before and have never been hit
+        // These unreferenced cache lines will be looked at first to be victims
+        // if all lines are referenced, we fall back to LRU
+        bool referenceBit;
+
+        ReplaceableEntry* entry;
+
         /**
          * Default constructor. Invalidate data.
          */
-        DSBReplData() : lastTouchTick(0) {}
+        DSBReplData() : lastTouchTick(0), referenceBit(0), entry(NULL) {}
     };
+
+    mutable std::unordered_map<uint32_t, CompetitorInfo> competitorMap;
+
+    // CONFIG 1
+    const int randomPromotion = 0; // 2^0 = 1
+    mutable int bypass_counter = 6; // 2^6 = 64 
+    const int virtual_bypass_counter = 4; // 2^4 16
 
   public:
     typedef DSBRPParams Params;
@@ -78,4 +103,4 @@ class DSB : public Base
 } // namespace replacement_policy
 } // namespace gem5
 
-#endif // __MEM_CACHE_REPLACEMENT_POLICIES_LRU_RP_HH__
+#endif // __MEM_CACHE_REPLACEMENT_POLICIES_DSB_RP_HH__
