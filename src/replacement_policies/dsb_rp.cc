@@ -75,16 +75,19 @@ void
 DSB::reset(const std::shared_ptr<ReplacementData>& replacement_data) const
 {
   auto replData = std::static_pointer_cast<DSBReplData>(replacement_data);
-  
-  // Set last touch timestamp
-  replData->lastTouchTick = curTick();
-  
-  // Set to non-reference list
-  replData->referenceBit = 0;
-
-  // Random promotion
-  if (randomPromotion > 0 && random_mt.random<unsigned>(1, 1u << randomPromotion) == 1) {
-    replData->referenceBit = 1;
+    
+  if (replData->softBypass) {
+    replData->lastTouchTick = Tick(0);
+    replData->referenceBit = 0;
+    replData->softBypass = false;
+    // skip random promotion too
+  } else {
+    replData->lastTouchTick = curTick();
+    replData->referenceBit = 0;
+    // Random promotion
+    if (randomPromotion > 0 && random_mt.random<unsigned>(1, 1u << randomPromotion) == 1) {
+      replData->referenceBit = 1;
+    }
   }
 
   ReplaceableEntry* entry = replData->entry;
@@ -192,6 +195,9 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
     competitorInfo.startBypass = true;
     competitorInfo.competitorWay = victimWay;
     competitorInfo.isVirtualBypass = false;
+    std::static_pointer_cast<DSBReplData>(
+      victim->replacementData)->softBypass = true;
+
     // set competitorTag in reset()
   } else {
     // virtual bypass

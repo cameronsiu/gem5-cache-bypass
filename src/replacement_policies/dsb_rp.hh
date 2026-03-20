@@ -37,11 +37,14 @@ class DSB : public Base
         bool referenceBit;
 
         ReplaceableEntry* entry;
+        
+        // Soft bypass for now
+        bool softBypass;
 
         /**
          * Default constructor. Invalidate data.
          */
-        DSBReplData() : lastTouchTick(0), referenceBit(0), entry(NULL) {}
+        DSBReplData() : lastTouchTick(0), referenceBit(0), entry(NULL), softBypass(false) {}
     };
 
     mutable std::unordered_map<uint32_t, CompetitorInfo> competitorMap;
