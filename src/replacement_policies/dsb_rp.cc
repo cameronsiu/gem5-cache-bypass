@@ -6,6 +6,7 @@
 #include "params/DSBRP.hh"
 #include "sim/cur_tick.hh"
 #include "base/random.hh"
+#include "mem/cache/cache_blk.hh"
 
 namespace gem5
 {
@@ -50,14 +51,22 @@ DSB::touch(const std::shared_ptr<ReplacementData>& replacement_data) const
 
     CompetitorInfo& competitorInfo = competitorMap.at(set);
     if (competitorInfo.competitorValid) {
-      if (way == competitorInfo.competitorWay) {
-        // Bypass was successful
-        if (!competitorInfo.isVirtualBypass) {
+      // Bypass was successful
+      if (!competitorInfo.isVirtualBypass) {
+        if (way == competitorInfo.competitorWay) {
           bypass_counter -= 1; // saturate
           bypass_counter = std::max(0, std::min(bypass_counter, 6));
           competitorInfo.competitorValid = false;
-        } else {
-          
+        } 
+      } else {
+        // successful virtual bypass
+        // you hit the inserted line
+        // competitor Tag is the hit
+        auto* blk = static_cast<CacheBlk*>(entry);
+        Addr tag = blk->getTag();
+        if (tag == competitorInfo.competitorTag) {
+          competitorInfo.competitorValid = false; 
+          // TODO: figure out what else to do here
         }
       }
     }
@@ -148,7 +157,7 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
   CompetitorInfo& competitorInfo = competitorMap.at(victimSet);
 
   // How do I get incoming tag?
-  // static_cast<TaggedEntry*>(victim)->getTag()
+  // 
   // Update bypass probabilities
   // TODO: Need to modify gem5 to get more info
 
@@ -166,8 +175,10 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
     // virtual bypass
     if (random_mt.random<unsigned>(1, 2^virtual_bypass_counter) == 1) {
       competitorInfo.competitorValid = true;
-      // competitorInfo.competitorTag = inserted line
-      competitorInfo.competitorWay = victimWay;
+      // competitor tag is the victim now
+      // TODO: add imports
+      competitorInfo.competitorTag = static_cast<TaggedEntry*>(victim)->getTag();
+      competitorInfo.competitorWay = victimWay; // TODO: is this correct?
       competitorInfo.isVirtualBypass = true;
     } else {
       // don't bypass nor virtual bypass
