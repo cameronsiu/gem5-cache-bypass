@@ -10,7 +10,7 @@ struct DSBRPParams;
 
 struct CompetitorInfo {
   bool     competitorValid = false; // whether a bypass episode is currently active
-  bool     startBypass = false;     // whehter a bypass started
+  bool     startBypass = false;     // whether a bypass started
   Addr     competitorTag = 0;   // tag of bypassed line (line that we would have inserted)
   uint32_t competitorWay = 0;   // way of victim line (line that we would have replaced)
   bool     isVirtualBypass = false; // true if we did not bypass, false if we did not
@@ -91,6 +91,15 @@ class DSB : public Base
      */
     ReplaceableEntry* getVictim(const ReplacementCandidates& candidates) const
                                                                      override;
+
+    /**
+     * Notify DSB that a bypass occurred, providing the bypassed line's tag.
+     *
+     * @param replacement_data Replacement data of the victim that survived.
+     * @param bypassedTag The tag of the line that was bypassed.
+     */
+    void notifyBypass(const std::shared_ptr<ReplacementData>& replacement_data,
+                      Addr bypassedTag) override;
 
     /**
      * Instantiate a replacement data entry.

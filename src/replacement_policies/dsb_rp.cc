@@ -29,6 +29,17 @@ DSB::invalidate(const std::shared_ptr<ReplacementData>& replacement_data)
 
   // Reset reference bit to non-reference list
   replData->referenceBit = 0;
+
+  // Cancel any active tracking episode if this line was the competitor
+  ReplaceableEntry* entry = replData->entry;
+  if (entry != NULL) {
+    uint32_t set = entry->getSet();
+    uint32_t way = entry->getWay();
+    CompetitorInfo& info = competitorMap[set];
+    if (info.competitorValid && way == info.competitorWay) {
+      info.competitorValid = false;
+    }
+  }
 }
 
 void
@@ -95,24 +106,17 @@ DSB::reset(const std::shared_ptr<ReplacementData>& replacement_data) const
     Addr tag = static_cast<TaggedEntry*>(entry)->getTag();
 
     if (competitorInfo.competitorValid) {
-      // Bypass was not successful
-      if (competitorInfo.startBypass) {
-        competitorInfo.competitorTag = tag;
-        competitorInfo.startBypass = false;
-      } else if (tag == competitorInfo.competitorTag) {
+      if (tag == competitorInfo.competitorTag) {
+        // Resolution: bypassed/evicted line came back as a miss
         if (!competitorInfo.isVirtualBypass) {
-          // tag is the inserted line
-          // we shouldn't bypass
+          // Real bypass was ineffective, be less aggressive
           bypass_counter += 1;
         } else {
-          // not successful virtual bypass
-          // inserted line got hit
-          // way is the inserted line
-          // we should bypass
+          // Virtual bypass: evicted line missed, we should have bypassed
           bypass_counter -= 1;
         }
         bypass_counter = std::max(0, std::min(bypass_counter, 6));
-        competitorInfo.competitorValid = false; 
+        competitorInfo.competitorValid = false;
       }
     }
   }
@@ -185,33 +189,43 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
 
   // bypass
   if (random_mt.random<unsigned>(1, 1u << bypass_counter) == 1) {
-    // don't insert somehow
-    // get the competitor info for the victim
-    // start the bypass
+    // True bypass: tell allocateBlock to skip insertion
+    std::static_pointer_cast<DSBReplData>(
+        victim->replacementData)->shouldBypass = true;
+
     competitorInfo.competitorValid = true;
-    competitorInfo.startBypass = true;
+    competitorInfo.startBypass = true;     // tag will arrive via notifyBypass()
     competitorInfo.competitorWay = victimWay;
     competitorInfo.isVirtualBypass = false;
-    // set competitorTag in reset()
+  } else if (random_mt.random<unsigned>(1, 1u << virtual_bypass_counter) == 1) {
+    // Virtual bypass: normal insertion, but track as if bypassed
+    competitorInfo.competitorValid = true;
+    competitorInfo.startBypass = false;
+    competitorInfo.competitorTag = static_cast<TaggedEntry*>(victim)->getTag();
+    competitorInfo.competitorWay = victimWay;
+    competitorInfo.isVirtualBypass = true;
   } else {
-    // virtual bypass
-    if (random_mt.random<unsigned>(1, 1u << virtual_bypass_counter) == 1) {
-      competitorInfo.competitorValid = true;
-      // competitor tag is the victim now
-      competitorInfo.startBypass = false;
-      competitorInfo.competitorTag = static_cast<TaggedEntry*>(victim)->getTag();
-      competitorInfo.competitorWay = victimWay;
-      competitorInfo.isVirtualBypass = true;
-    } else {
-      // don't bypass nor virtual bypass
-      // make sure victim's competitorInfo is set to competitor valid false
-      competitorInfo.competitorValid = false;
-    }
+    // No bypass, no tracking
+    competitorInfo.competitorValid = false;
   }
 
-  // TODO: Change the gem5 internals to bypass
-
   return victim;
+}
+
+void
+DSB::notifyBypass(const std::shared_ptr<ReplacementData>& replacement_data,
+                  Addr bypassedTag)
+{
+  auto replData = std::static_pointer_cast<DSBReplData>(replacement_data);
+  ReplaceableEntry* entry = replData->entry;
+  if (entry != NULL) {
+    uint32_t set = entry->getSet();
+    CompetitorInfo& info = competitorMap[set];
+    if (info.competitorValid && info.startBypass) {
+      info.competitorTag = bypassedTag;
+      info.startBypass = false;
+    }
+  }
 }
 
 std::shared_ptr<ReplacementData>
