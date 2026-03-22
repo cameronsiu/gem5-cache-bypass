@@ -41,13 +41,18 @@ def _config_cache_with_rp(options, system):
     _orig_config_cache(options, system)
     rp_class = ObjectList.rp_list.get(rp_type)
     print(f"Replacement policy: {rp_type}")
+    # Only apply the replacement policy to L2 (the LLC).
+    # L1I and L1D stay on default LRU for a fair LLC comparison.
     if hasattr(system, 'l2'):
         system.l2.replacement_policy = rp_class()
-    for cpu in system.cpu:
-        if hasattr(cpu, 'icache'):
-            cpu.icache.replacement_policy = rp_class()
-        if hasattr(cpu, 'dcache'):
-            cpu.dcache.replacement_policy = rp_class()
+    # Disable snoop filters. Not needed for single-core SE mode, and they
+    # panic when combined with cache bypass (shouldBypass skips insertion
+    # but the snoop filter still tracks the line as present).
+    from m5.params import NULL
+    if hasattr(system, 'tol2bus'):
+        system.tol2bus.snoop_filter = NULL
+    if hasattr(system, 'membus'):
+        system.membus.snoop_filter = NULL
 
 CacheConfig.config_cache = _config_cache_with_rp
 

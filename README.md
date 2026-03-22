@@ -1,304 +1,168 @@
 # gem5-cache-bypass
-CMPT 750 Project — implementing DSB (Dueling Segmented LRU with adaptive Bypassing) in gem5.
 
----
+CMPT 750 Project -- implementing DSB (Dueling Segmented LRU with adaptive Bypassing) in gem5 v23.0.0.1.
 
-## Setup on a new machine
+## Prerequisites
 
-gem5 is pre-built at `/opt/gem5`. Do these steps once after cloning or rebuilding the container.
+- gem5 v23.0.0.1 pre-built at `/opt/gem5`
+- SPEC CPU2017 benchmarks installed at `/workspace/spec2017` (see [docs/SPEC_SETUP.md](docs/SPEC_SETUP.md))
 
-### 1. Shell shortcuts
-
-```bash
-echo 'export GEM5=/opt/gem5' >> ~/.bashrc
-echo "alias gem5='/opt/gem5/build/X86/gem5.opt'" >> ~/.bashrc
-source ~/.bashrc
-```
-
-### 2. Register DSB in gem5's build system
-
-Copy the workspace files into gem5's source tree (this also handles the SConscript):
+## Quick start
 
 ```bash
-bash /workspace/scripts/build_dsb.sh
+# 1. Build DSB (copies source files + gem5 patches, then rebuilds gem5)
+bash scripts/build_dsb.sh
+
+# 2. Sanity test (1000 instructions, ~1 min)
+MAXINST=1000 bash scripts/run_all.sh
+
+# 3. Full run (per-benchmark instruction counts, ~1-2 hours)
+bash scripts/run_all.sh
+
+# 4. Visualize results
+python3 scripts/visualize.py
 ```
 
-The script copies `dsb_rp.hh`, `dsb_rp.cc`, `DSBRP.py`, and `SConscript` into
-`/opt/gem5/src/mem/cache/replacement_policies/` and runs a full build.
+## Building
 
-The `SConscript` registers DSB with two entries gem5 needs:
-```python
-SimObject('DSBRP.py', sim_objects=['DSBRP'])  # exposes DSB to Python configs
-Source('dsb_rp.cc')                            # compiles the C++ implementation
-```
-
-The first build takes a while. Incremental rebuilds (after editing source files)
-are fast — scons only recompiles what changed.
-
-### 3. Install SPEC CPU2017 benchmarks
-
-Install from option 2: https://polyarch.github.io/cs251a/resources/spec2017-gem5/
-
-1. Mount the `.iso` and run `./install.sh`
-2. Copy the installed `spec2017/` directory into the container at `/workspace/spec2017`
-3. Create the gem5 build config:
+DSB source lives in `src/replacement_policies/`. The build script copies these
+into gem5's source tree along with patches to gem5 internals (for true bypass
+support), then runs scons:
 
 ```bash
-cd /workspace/spec2017
-source shrc
-cp config/Example-gcc-linux-x86.cfg config/gem5-x86.cfg
+bash scripts/build_dsb.sh
 ```
 
-4. Edit `config/gem5-x86.cfg` — two required changes:
+**What gets copied:**
+- `src/replacement_policies/dsb_rp.{hh,cc}`, `DSBRP.py`, `SConscript` -- DSB implementation
+- `src/gem5_patches/*` -- modified gem5 files for bypass support (see [docs/TRUE_BYPASS_MODIFICATIONS.md](docs/TRUE_BYPASS_MODIFICATIONS.md))
 
-   **Line ~138** — point `gcc_dir` at the system compiler:
-   ```
-   %   define  gcc_dir        /usr  # EDIT (see above)
-   ```
+The first build takes a while. Incremental rebuilds after editing source files are fast.
 
-   **Line ~237** — change the `OPTIMIZE` flags:
-   ```
-   OPTIMIZE = -g -O3 -march=x86-64 -fno-unsafe-math-optimizations -fno-tree-loop-vectorize -static
-   ```
+## Running benchmarks
 
-   Why `-static`: gem5's syscall-emulation (SE) mode does not emulate a dynamic
-   linker, so all benchmarks must be statically linked or they crash on startup.
-
-   Why `-march=x86-64` (not `-march=native`): the host CPU may support AVX/AVX2
-   instructions, but gem5's X86 CPU model does not. Using `-march=native` produces
-   AVX instructions (e.g. `VBROADCASTSD`) that cause a gem5 panic at runtime.
-
-### 4. Build and prepare each benchmark
-
-For each benchmark, the workflow is:
+`scripts/run_all.sh` runs all replacement policies across all benchmarks.
+Policies run sequentially; benchmarks run in parallel (2 at a time by default).
 
 ```bash
-cd /workspace/spec2017 && source shrc
+# Full run with per-benchmark instruction counts
+bash scripts/run_all.sh
 
-# Generate build/run directories (does not actually compile):
-runcpu --fake --config gem5-x86 <benchmark_name>
+# Quick sanity test (overrides all benchmarks to 1000 instructions)
+MAXINST=1000 bash scripts/run_all.sh
 
-# Compile:
-go <benchmark_name>
-cd build/build_base_mytest-m64.0000
-specmake
-
-# Copy binary to the run directory:
-cp <binary_name> ../../run/run_base_refspeed_mytest-m64.0000/<binary_name>_base.mytest-m64
-
-# See the native run command (for reference):
-cd ../../run/run_base_refspeed_mytest-m64.0000
-specinvoke -n
+# Run specific policies only
+POLICIES_OVERRIDE="dsb lru" bash scripts/run_all.sh
 ```
 
-#### Fix for 619.lbm_s: obstacle file size check
+### Per-benchmark configuration
 
-lbm_s validates the obstacle input file size against compiled-in grid dimensions.
-Under gem5 SE mode, `stat()` returns an incorrect file size (the simulated
-filesystem doesn't match), causing the benchmark to exit before doing any work.
-
-Comment out the size check in `main.c` (lines ~84-91 in the build directory)
-and rebuild:
-
-```c
-// In benchspec/CPU/619.lbm_s/build/build_base_mytest-m64.0000/main.c
-// Comment out the file size validation block (keep the stat() existence check):
-
-        if( stat( param->obstacleFilename, &fileStat ) != 0 ) {
-                printf( "MAIN_parseCommandLine: cannot stat obstacle file '%s'\n",
-                         param->obstacleFilename );
-                exit( 1 );
-        }
-/*      if( fileStat.st_size != SIZE_X*SIZE_Y*SIZE_Z+(SIZE_Y+1)*SIZE_Z ) {
-                printf( "MAIN_parseCommandLine:\n"
-                        "\tsize of file '%s' is %i bytes\n"
-                                    "\texpected size is %i bytes\n",
-                        param->obstacleFilename, (int) fileStat.st_size,
-                        SIZE_X*SIZE_Y*SIZE_Z+(SIZE_Y+1)*SIZE_Z );
-                exit( 1 );
-        }*/
-```
-
-Then `specmake clean && specmake` and copy the binary to the run directory again.
-
----
-
-## Benchmarks
-
-Four benchmarks covering different cache access patterns:
-
-| Benchmark | Type | Category | Why |
+| Benchmark | Fast-forward | Detailed insts | Why |
 |---|---|---|---|
-| 619.lbm_s | Lattice Boltzmann fluid sim | Streaming | Large arrays, sequential sweeps — benefits from bypass |
-| 605.mcf_s | Vehicle scheduling (min-cost flow) | Pointer-chasing | Random access over large graph — high cache miss rate |
-| 631.deepsjeng_s | Chess engine | Integer | Moderate working set, mix of hits and misses |
-| 657.xz_s | LZMA compression | Mixed | Combination of sequential and random access patterns |
+| mcf | 0 | 200M | Memory-intensive from the start |
+| lbm | 300M | 200M | Skip grid initialization |
+| deepsjeng | 500M | 100M | Skip board/opening book setup |
+| xz | 500M | 100M | Skip file I/O setup |
 
-### Running benchmarks
+Fast-forward runs in atomic mode (fast) to skip initialization, then switches
+to detailed O3 simulation for the specified number of instructions.
 
-Use `scripts/run_benchmarks.sh` to run simulations with a given replacement policy.
-Results are saved to `/workspace/results/<policy>/<benchmark>/`.
-
-```bash
-# Run all 4 benchmarks with LRU (50M instructions each):
-bash scripts/run_benchmarks.sh lru
-
-# Run specific benchmarks:
-bash scripts/run_benchmarks.sh lru lbm mcf
-
-# Quick sanity test (1000 instructions, a few seconds):
-MAXINST=1000 bash scripts/run_benchmarks.sh lru lbm
-
-# Run with a different policy:
-bash scripts/run_benchmarks.sh brrip
-bash scripts/run_benchmarks.sh dsb          # after building DSB
-```
+### Replacement policies
 
 | Short name | gem5 class | Description |
 |---|---|---|
+| `dsb` | DSBRP | Dueling Segmented LRU with Bypass (ours) |
 | `lru` | LRURP | Least Recently Used (baseline) |
 | `brrip` | BRRIPRP | Bimodal Re-Reference Interval Prediction |
 | `random` | RandomRP | Random replacement |
 | `fifo` | FIFORP | First-In First-Out |
-| `dsb` | DSBRP | Dueling Segmented LRU with Bypass (ours) |
-
-Available benchmark names: `lbm`, `mcf`, `deepsjeng`, `xz`
-
-A successful run ends with:
-`Exiting @ tick ... because a thread reached the max instruction count`
-
-If you see `panic: Unrecognized/invalid instruction`, the binary was compiled with
-`-march=native` instead of `-march=x86-64` — rebuild it (see step 4).
-
-### Where results go
-
-Results are organized by policy, then benchmark:
-
-```
-/workspace/results/
-├── lru/
-│   ├── lbm/
-│   │   ├── stats.txt    # all gem5 statistics
-│   │   ├── config.ini   # full simulation config snapshot
-│   │   └── sim.log      # stdout/stderr from the run
-│   ├── mcf/
-│   ├── deepsjeng/
-│   └── xz/
-├── brrip/
-│   └── ...
-└── dsb/
-    └── ...
-```
-
-Re-running a benchmark overwrites previous results for that policy/benchmark
-pair — copy or rename the directory first if you want to keep old results.
-
-### Comparing results
-
-```bash
-# Miss rates for all benchmarks under one policy:
-grep "demandMissRate::total" /workspace/results/lru/*/stats.txt
-
-# Compare one benchmark across policies:
-grep "system.cpu.dcache.demandMissRate::total" /workspace/results/*/lbm/stats.txt
-
-# Full stats for a single run:
-grep -E "demandMissRate|demandHits|demandMisses|replacements|demandAvgMissLatency" \
-    /workspace/results/lru/lbm/stats.txt
-```
 
 ### How the policy override works
 
 `configs/run_spec.py` wraps gem5's `se.py` and adds a `--rp-type` flag.
 It monkey-patches `CacheConfig.config_cache` to set `replacement_policy` on
-L1D, L1I, and L2 after they are created. The bash script maps short policy
-names (e.g. `lru`) to gem5 class names (e.g. `LRURP`) and passes `--rp-type`.
+**L2 only** (the LLC). L1I and L1D stay on default LRU for a fair LLC comparison.
 
-To add a new policy, register its gem5 class in the `POLICIES` array in
-`scripts/run_benchmarks.sh`.
+The snoop filter is disabled on both `tol2bus` and `membus` since it is not
+needed for single-core SE mode and conflicts with cache bypass.
 
----
+### Results
+
+Results are organized by policy, then benchmark:
+
+```
+results/
+  <policy>/
+    <benchmark>/
+      stats.txt    -- gem5 statistics
+      config.ini   -- full simulation config snapshot
+      sim.log      -- stdout/stderr from the run
+```
+
+Re-running overwrites previous results for that policy/benchmark pair.
+
+### Visualizing
+
+```bash
+python3 scripts/visualize.py                        # all policies & benchmarks
+python3 scripts/visualize.py --policies dsb lru     # specific policies
+python3 scripts/visualize.py --benchmarks lbm mcf   # specific benchmarks
+python3 scripts/visualize.py --output custom.png    # custom output path
+```
+
+Output: `results/comparison.png`
 
 ## Project structure
 
 ```
 /workspace/
-├── configs/
-│   ├── run_spec.py                 # gem5 config wrapper (adds --rp-type to se.py)
-│   └── run_dsb.py                  # standalone DSB sim config (hello world)
-├── scripts/
-│   ├── build_dsb.sh                # copy files + rebuild gem5
-│   └── run_benchmarks.sh           # run SPEC benchmarks with any RP
-├── src/replacement_policies/
-│   ├── dsb_rp.hh                   # C++ header
-│   ├── dsb_rp.cc                   # C++ source
-│   ├── DSBRP.py                    # gem5 SimObject wrapper
-│   └── SConscript                  # gem5 build system registration
-└── results/
-    └── <policy>/
-        └── <benchmark>/
-            ├── stats.txt           # gem5 statistics output
-            ├── config.ini          # full sim config snapshot
-            └── sim.log             # stdout/stderr from the run
+  configs/
+    run_spec.py                   -- gem5 config wrapper (adds --rp-type to se.py)
+  scripts/
+    build_dsb.sh                  -- copy files + gem5 patches + rebuild
+    run_all.sh                    -- run all policies across all benchmarks
+    visualize.py                  -- generate comparison charts
+  src/
+    replacement_policies/
+      dsb_rp.hh                   -- DSB C++ header
+      dsb_rp.cc                   -- DSB C++ implementation
+      DSBRP.py                    -- gem5 SimObject wrapper
+      SConscript                  -- gem5 build system registration
+    gem5_patches/                 -- modified gem5 files for bypass support
+  docs/
+    SPEC_SETUP.md                 -- SPEC CPU2017 installation guide
+    TRUE_BYPASS_MODIFICATIONS.md  -- detailed bypass implementation changes
+  results/                        -- simulation output (gitignored)
 ```
-
----
 
 ## Iteration workflow
 
-Edit source → rebuild → simulate → compare.
-
 ```bash
 # 1. Edit DSB source
-#    src/replacement_policies/dsb_rp.{hh,cc} and/or DSBRP.py
+vim src/replacement_policies/dsb_rp.cc
 
-# 2. Rebuild gem5
-bash /workspace/scripts/build_dsb.sh
+# 2. Rebuild
+bash scripts/build_dsb.sh
 
-# 3. Run baselines + DSB
-bash scripts/run_benchmarks.sh lru
-bash scripts/run_benchmarks.sh brrip
-bash scripts/run_benchmarks.sh dsb
+# 3. Run
+bash scripts/run_all.sh
 
-# 4. Compare DSB against baselines
-grep "system.cpu.dcache.demandMissRate::total" /workspace/results/*/lbm/stats.txt
+# 4. Visualize
+python3 scripts/visualize.py
 ```
-
----
 
 ## Key stats
 
 | Stat | Meaning |
 |---|---|
-| `demandMissRate::total` | Miss rate (lower = better) |
-| `demandHits::total` | Total cache hits |
-| `demandMisses::total` | Total cache misses |
-| `replacements` | Number of evictions |
-| `demandAvgMissLatency::total` | Average miss penalty in ticks |
+| `system.switch_cpus.ipc` | IPC during detailed simulation (after fast-forward) |
+| `system.cpu.ipc` | IPC (benchmarks without fast-forward) |
+| `system.l2.demandMissRate::total` | L2 miss rate (lower = better) |
+| `system.l2.demandHits::total` | L2 cache hits |
+| `system.l2.demandMisses::total` | L2 cache misses |
+| `system.l2.replacements` | L2 evictions |
+| `system.l2.demandAvgMissLatency::total` | Average L2 miss penalty (ticks) |
 
-Stats file: `/workspace/results/<policy>/stats.txt`
-
----
-
-## gem5 replacement policy interface
-
-Every policy inherits from `Base` and implements 4 methods:
-
-| Method | Called when | Notes |
-|---|---|---|
-| `invalidate()` | line is invalidated | reset your per-line state |
-| `touch()` | cache hit | update reuse predictor |
-| `reset()` | new line inserted | bypass decision goes here |
-| `getVictim()` | eviction needed | pick which line to evict |
-
-Reference implementation: `/opt/gem5/src/mem/cache/replacement_policies/lru_rp.{hh,cc}`
-
-### LRU reference stats (hello world, two-level cache)
-
-```
-system.cpu.dcache.demandMissRate::total       0.064096
-system.cpu.dcache.demandHits::total           1942
-system.cpu.dcache.demandMisses::total         133
-system.cpu.dcache.replacements                0
-system.cpu.dcache.demandAvgMissLatency::total 106714
-```
+Note: after fast-forward, the O3 CPU stats are under `system.switch_cpus`,
+not `system.cpu`. Cache stats (`system.l2`, `system.cpu.dcache`) are shared
+objects and report correctly under either prefix.

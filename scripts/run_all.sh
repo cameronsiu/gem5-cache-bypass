@@ -17,7 +17,7 @@ SPEC=/workspace/spec2017/benchspec/CPU
 RESULTS=/workspace/results
 MAXINST=${MAXINST:-0}
 
-POLICY_ORDER=(${POLICIES_OVERRIDE:-lru brrip random fifo dsb})
+POLICY_ORDER=(${POLICIES_OVERRIDE:-dsb lru brrip random fifo})
 
 declare -A POLICY_MAP
 POLICY_MAP=(
