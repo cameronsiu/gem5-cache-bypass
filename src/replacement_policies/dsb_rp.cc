@@ -1,6 +1,7 @@
 #include "dsb_rp.hh"
 
 #include <cassert>
+#include <cstdio>
 #include <memory>
 
 #include "params/DSBRP.hh"
@@ -15,8 +16,46 @@ namespace replacement_policy
 {
 
 DSB::DSB(const Params &p)
-  : Base(p)
+  : Base(p),
+    randomPromotion(p.random_promotion),
+    bypass_counter(p.bypass_counter),
+    virtual_bypass_counter(p.virtual_bypass_counter)
 {
+}
+
+DSB::~DSB()
+{
+  fprintf(stderr,
+    "\n===== DSB INSTRUMENTATION SUMMARY =====\n"
+    "getVictim calls:            %lu\n"
+    "  Real bypass started:      %lu\n"
+    "  Virtual bypass started:   %lu\n"
+    "  No tracking:              %lu\n"
+    "Touch resolutions:          %lu\n"
+    "  Real bypass effective:    %lu  (victim survived hit -> bc--)\n"
+    "  Virtual bypass ineffect:  %lu  (inserted line got hit -> bc++)\n"
+    "Reset resolutions:          %lu\n"
+    "  Real bypass ineffective:  %lu  (bypassed tag returned -> bc++)\n"
+    "  Virtual bypass effective: %lu  (evicted tag returned -> bc--)\n"
+    "bypass_counter increments:  %lu\n"
+    "bypass_counter decrements:  %lu\n"
+    "Invalidate cancellations:   %lu\n"
+    "Final bypass_counter value: %d\n"
+    "========================================\n",
+    stat_getVictimCalls,
+    stat_realBypassStarted,
+    stat_virtualBypassStarted,
+    stat_noTracking,
+    stat_touchResolved,
+    stat_touchRealBypassEffective,
+    stat_touchVirtualBypassIneffective,
+    stat_resetResolved,
+    stat_resetRealBypassIneffective,
+    stat_resetVirtualBypassEffective,
+    stat_bcIncrements,
+    stat_bcDecrements,
+    stat_invalidateCancelled,
+    bypass_counter);
 }
 
 void
@@ -38,6 +77,7 @@ DSB::invalidate(const std::shared_ptr<ReplacementData>& replacement_data)
     CompetitorInfo& info = competitorMap[set];
     if (info.competitorValid && way == info.competitorWay) {
       info.competitorValid = false;
+      stat_invalidateCancelled++;
     }
   }
 }
@@ -64,19 +104,24 @@ DSB::touch(const std::shared_ptr<ReplacementData>& replacement_data) const
     if (competitorInfo.competitorValid) {
       // Bypass was successful
       if (way == competitorInfo.competitorWay) {
+        stat_touchResolved++;
         if (!competitorInfo.isVirtualBypass) {
           // way is the victim
           // this means that we should bypass
           bypass_counter -= 1;
+          stat_bcDecrements++;
+          stat_touchRealBypassEffective++;
         } else {
           // successful virtual bypass
           // inserted line got hit
           // way is the inserted line
           // this means that we shouldn't bypass
           bypass_counter += 1;
+          stat_bcIncrements++;
+          stat_touchVirtualBypassIneffective++;
         }
-        bypass_counter = std::max(0, std::min(bypass_counter, 6));
-        competitorInfo.competitorValid = false; 
+        bypass_counter = std::max(0, std::min(bypass_counter, 12));
+        competitorInfo.competitorValid = false;
       }
     }
   }
@@ -107,15 +152,20 @@ DSB::reset(const std::shared_ptr<ReplacementData>& replacement_data) const
 
     if (competitorInfo.competitorValid) {
       if (tag == competitorInfo.competitorTag) {
+        stat_resetResolved++;
         // Resolution: bypassed/evicted line came back as a miss
         if (!competitorInfo.isVirtualBypass) {
           // Real bypass was ineffective, be less aggressive
           bypass_counter += 1;
+          stat_bcIncrements++;
+          stat_resetRealBypassIneffective++;
         } else {
           // Virtual bypass: evicted line missed, we should have bypassed
           bypass_counter -= 1;
+          stat_bcDecrements++;
+          stat_resetVirtualBypassEffective++;
         }
-        bypass_counter = std::max(0, std::min(bypass_counter, 6));
+        bypass_counter = std::max(0, std::min(bypass_counter, 12));
         competitorInfo.competitorValid = false;
       }
     }
@@ -187,6 +237,23 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
   uint32_t victimWay = victim->getWay();
   CompetitorInfo& competitorInfo = competitorMap[victimSet];
 
+  stat_getVictimCalls++;
+
+  if (stat_getVictimCalls % 100000 == 0) {
+    fprintf(stderr,
+      "[DSB @ %lu calls] bc=%d | real=%lu virt=%lu notrack=%lu | "
+      "touchRes=%lu(eff=%lu,ineff=%lu) resetRes=%lu(ineff=%lu,eff=%lu) | "
+      "bc++=%lu bc--=%lu inv=%lu\n",
+      stat_getVictimCalls, bypass_counter,
+      stat_realBypassStarted, stat_virtualBypassStarted, stat_noTracking,
+      stat_touchResolved, stat_touchRealBypassEffective,
+      stat_touchVirtualBypassIneffective,
+      stat_resetResolved, stat_resetRealBypassIneffective,
+      stat_resetVirtualBypassEffective,
+      stat_bcIncrements, stat_bcDecrements,
+      stat_invalidateCancelled);
+  }
+
   // bypass
   if (random_mt.random<unsigned>(1, 1u << bypass_counter) == 1) {
     // True bypass: tell allocateBlock to skip insertion
@@ -197,6 +264,7 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
     competitorInfo.startBypass = true;     // tag will arrive via notifyBypass()
     competitorInfo.competitorWay = victimWay;
     competitorInfo.isVirtualBypass = false;
+    stat_realBypassStarted++;
   } else if (random_mt.random<unsigned>(1, 1u << virtual_bypass_counter) == 1) {
     // Virtual bypass: normal insertion, but track as if bypassed
     competitorInfo.competitorValid = true;
@@ -204,9 +272,11 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
     competitorInfo.competitorTag = static_cast<TaggedEntry*>(victim)->getTag();
     competitorInfo.competitorWay = victimWay;
     competitorInfo.isVirtualBypass = true;
+    stat_virtualBypassStarted++;
   } else {
     // No bypass, no tracking
     competitorInfo.competitorValid = false;
+    stat_noTracking++;
   }
 
   return victim;

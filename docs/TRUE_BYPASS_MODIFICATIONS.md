@@ -191,11 +191,87 @@ Updated to also copy the four gem5 patch files from `src/gem5_patches/` into the
 
 ---
 
+### 4. Configuration
+
+#### `DSBRP.py`
+
+**Change:** Added runtime-configurable parameters as gem5 `Param.Int` fields.
+
+```python
+bypass_counter = Param.Int(6, "Initial bypass counter (log2 of denominator)")
+virtual_bypass_counter = Param.Int(4, "Virtual bypass counter (log2)")
+random_promotion = Param.Int(0, "Random promotion to referenced on insert (log2)")
+```
+
+**Why:** Allows sweeping DSB parameters without recompiling gem5.
+
+#### `dsb_rp.hh`
+
+**Additional change:** Hardcoded constants replaced with member variables initialized from params.
+
+```cpp
+const int randomPromotion;
+mutable int bypass_counter;
+const int virtual_bypass_counter;
+```
+
+#### `dsb_rp.cc`
+
+**Additional change:** Constructor reads from params object.
+
+```cpp
+DSB::DSB(const Params &p)
+  : Base(p),
+    randomPromotion(p.random_promotion),
+    bypass_counter(p.bypass_counter),
+    virtual_bypass_counter(p.virtual_bypass_counter)
+{
+}
+```
+
+---
+
+## Runtime Configuration
+
+#### `configs/run_spec.py`
+
+**Key behaviors:**
+- Extracts `--dsb-bypass-counter`, `--dsb-virtual-bypass-counter`, `--dsb-random-promotion` flags from the command line and passes them as kwargs to the DSB SimObject constructor.
+- Only applies the replacement policy to L2 (the LLC). L1I and L1D stay on default LRU for fair comparison.
+- Disables snoop filters on both `tol2bus` and `membus` (required for true bypass, see below).
+
+---
+
+## Important Compatibility Notes
+
+### Snoop Filter Incompatibility
+
+True bypass causes `allocateBlock()` to return `nullptr`, sending data to `tempBlock` instead of the cache. However, gem5's snoop filter still tracks the cache as a holder of that address. When a snoop arrives for a bypassed line, `snoop_filter.cc:144` panics because it finds no matching entry.
+
+**Fix:** Disable snoop filters in `run_spec.py`. This is safe because snoop filters are not needed in single-core SE (syscall emulation) mode:
+
+```python
+from m5.params import NULL
+if hasattr(system, 'tol2bus'):
+    system.tol2bus.snoop_filter = NULL
+if hasattr(system, 'membus'):
+    system.membus.snoop_filter = NULL
+```
+
+### L2-Only Policy Application
+
+The replacement policy must only be applied to L2 (the LLC), not L1I or L1D. Applying DSB or other non-LRU policies to L1 causes catastrophic L1D miss rates (e.g., mcf L1D miss rate jumps from 0.6% to 5.6%), which inflates L2 traffic and distorts all downstream metrics.
+
+### IPC Stats After Fast-Forward
+
+After fast-forward, the O3 CPU stats are under `system.switch_cpus`, not `system.cpu`. The atomic fast-forward CPU's `system.cpu.ipc` shows `nan` because it had 0 cycles in the detailed simulation region. Use `system.switch_cpus.ipc` for benchmarks that use fast-forward.
+
+---
+
 ## Files NOT Changed
 
 - `CompetitorInfo` struct — `startBypass` field is retained (used as a flag that `notifyBypass` checks/clears)
 - `touch()` — Logic remains correct for both real and virtual bypass
-- `DSBRP.py` — No parameter changes
 - `SConscript` — No new source files
 - `replaceable_entry.hh` — `shouldBypass` field already existed
 
@@ -219,5 +295,9 @@ Updated to also copy the four gem5 patch files from `src/gem5_patches/` into the
    /opt/gem5/build/X86/gem5.opt --debug-flags=CacheRepl ...
    grep "Bypassing insertion" m5out/debug.log
    ```
-3. Check that stats show non-zero bypass events
-4. Compare LLC miss rates against a pure LRU baseline — DSB should improve on streaming benchmarks
+3. Check that stats show non-zero bypass events (lower L2 replacements compared to LRU)
+4. Compare LLC miss rates against a pure LRU baseline
+5. To sweep parameters without recompiling:
+   ```bash
+   bash scripts/sweep_dsb.sh
+   ```

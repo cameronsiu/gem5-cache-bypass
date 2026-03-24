@@ -46,15 +46,29 @@ class DSB : public Base
 
     mutable std::unordered_map<uint32_t, CompetitorInfo> competitorMap;
 
-    // CONFIG 1
-    const int randomPromotion = 0; // 2^0 = 1
-    mutable int bypass_counter = 6; // 2^6 = 64 
-    const int virtual_bypass_counter = 4; // 2^4 16
+    const int randomPromotion;
+    mutable int bypass_counter;
+    const int virtual_bypass_counter;
+
+    // Instrumentation counters
+    mutable uint64_t stat_getVictimCalls = 0;
+    mutable uint64_t stat_realBypassStarted = 0;
+    mutable uint64_t stat_virtualBypassStarted = 0;
+    mutable uint64_t stat_noTracking = 0;
+    mutable uint64_t stat_touchResolved = 0;
+    mutable uint64_t stat_touchRealBypassEffective = 0;   // hit to victim way during real bypass
+    mutable uint64_t stat_touchVirtualBypassIneffective = 0; // hit to inserted line during virtual
+    mutable uint64_t stat_resetResolved = 0;
+    mutable uint64_t stat_resetRealBypassIneffective = 0; // bypassed tag came back (real)
+    mutable uint64_t stat_resetVirtualBypassEffective = 0; // evicted tag came back (virtual)
+    mutable uint64_t stat_bcIncrements = 0;
+    mutable uint64_t stat_bcDecrements = 0;
+    mutable uint64_t stat_invalidateCancelled = 0;
 
   public:
     typedef DSBRPParams Params;
     DSB(const Params &p);
-    ~DSB() = default;
+    ~DSB();
 
     /**
      * Invalidate replacement data to set it as the next probable victim.

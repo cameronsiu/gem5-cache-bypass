@@ -12,12 +12,19 @@ If --rp-type is omitted, defaults to LRURP.
 import os
 import sys
 
-# --- Extract --rp-type before se.py sees it ---
+# --- Extract our custom flags before se.py sees them ---
 rp_type = "LRURP"
+dsb_params = {}
 new_argv = []
 for arg in sys.argv:
     if arg.startswith("--rp-type="):
         rp_type = arg.split("=", 1)[1]
+    elif arg.startswith("--dsb-bypass-counter="):
+        dsb_params["bypass_counter"] = int(arg.split("=", 1)[1])
+    elif arg.startswith("--dsb-virtual-bypass-counter="):
+        dsb_params["virtual_bypass_counter"] = int(arg.split("=", 1)[1])
+    elif arg.startswith("--dsb-random-promotion="):
+        dsb_params["random_promotion"] = int(arg.split("=", 1)[1])
     else:
         new_argv.append(arg)
 sys.argv = new_argv
@@ -44,7 +51,7 @@ def _config_cache_with_rp(options, system):
     # Only apply the replacement policy to L2 (the LLC).
     # L1I and L1D stay on default LRU for a fair LLC comparison.
     if hasattr(system, 'l2'):
-        system.l2.replacement_policy = rp_class()
+        system.l2.replacement_policy = rp_class(**dsb_params)
     # Disable snoop filters. Not needed for single-core SE mode, and they
     # panic when combined with cache bypass (shouldBypass skips insertion
     # but the snoop filter still tracks the line as present).
