@@ -14,11 +14,17 @@ import sys
 
 # --- Extract our custom flags before se.py sees them ---
 rp_type = "LRURP"
+l2_size = "2MB"
+l2_assoc = 16
 dsb_params = {}
 new_argv = []
 for arg in sys.argv:
     if arg.startswith("--rp-type="):
         rp_type = arg.split("=", 1)[1]
+    elif arg.startswith("--l2-size="):
+        l2_size = arg.split("=", 1)[1]
+    elif arg.startswith("--l2-assoc="):
+        l2_assoc = int(arg.split("=", 1)[1])
     elif arg.startswith("--dsb-bypass-counter="):
         dsb_params["bypass_counter"] = int(arg.split("=", 1)[1])
     elif arg.startswith("--dsb-virtual-bypass-counter="):
@@ -48,10 +54,13 @@ def _config_cache_with_rp(options, system):
     _orig_config_cache(options, system)
     rp_class = ObjectList.rp_list.get(rp_type)
     print(f"Replacement policy: {rp_type}")
+    print(f"L2 size: {l2_size}, L2 assoc: {l2_assoc}")
     # Only apply the replacement policy to L2 (the LLC).
     # L1I and L1D stay on default LRU for a fair LLC comparison.
     if hasattr(system, 'l2'):
         system.l2.replacement_policy = rp_class(**dsb_params)
+        system.l2.size = l2_size
+        system.l2.assoc = l2_assoc
     # Disable snoop filters. Not needed for single-core SE mode, and they
     # panic when combined with cache bypass (shouldBypass skips insertion
     # but the snoop filter still tracks the line as present).
