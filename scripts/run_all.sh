@@ -8,6 +8,7 @@
 #   MAXINST=1000 bash scripts/run_all.sh    # override all benchmarks (quick sanity test)
 #   L2_SIZE=1MB bash scripts/run_all.sh     # run with 1MB L2 cache
 #   POLICIES_OVERRIDE="dsb lru" bash scripts/run_all.sh  # specific policies
+#   CKPT_BASE=/workspace/checkpoints bash scripts/run_all.sh  # custom checkpoint dir
 #
 # Results go to: /workspace/results/<L2_SIZE>/<policy>/<benchmark>/
 
@@ -21,6 +22,7 @@ MAXINST=${MAXINST:-0}
 L2_SIZE=${L2_SIZE:-2MB}
 L2_ASSOC=${L2_ASSOC:-16}
 WARMUP=${WARMUP:-50000000}
+CKPT_BASE=${CKPT_BASE:-/workspace/checkpoints}
 
 POLICY_ORDER=(${POLICIES_OVERRIDE:-dsb lru brrip random fifo tree_plru dsb-bc0 dsb-bc2 dsb-bc4})
 
@@ -78,27 +80,27 @@ GEM5_COMMON=(
     --l1d_size=32kB --l1i_size=32kB --l2_size=${L2_SIZE}
 )
 
-# Benchmark definitions: spec_dir | binary | options | mem_size | fast_forward | maxinst
-# fast_forward skips init in atomic mode before detailed O3
+# Benchmark definitions: spec_dir | binary | options | mem_size | (unused) | maxinst
+# Checkpoints from create_checkpoints.sh skip init; restore + warmup + O3 measurement
 # maxinst is per-benchmark; overridden by MAXINST env var if set (non-zero)
 declare -A BENCHMARKS
 BENCHMARKS=(
     # --- Integer ---
-    [mcf]="605.mcf_s|mcf_s_base.mytest-m64|inp.in|8GB|200000000|50000000"
-    [deepsjeng]="631.deepsjeng_s|deepsjeng_s_base.mytest-m64|ref.txt|8GB|500000000|100000000"
-    [xz]="657.xz_s|xz_s_base.mytest-m64|cpu2006docs.tar.xz 6643 055ce243071129412e9dd0b3b69a21654033a9b723d874b2015c774fac1553d9713be561ca86f74e4f16f22e664fc17a79f30caa5ad2c04fbc447549c2810fae 1036078272 1111795472 4|16GB|500000000|100000000"
-    [perlbench]="600.perlbench_s|perlbench_s_base.mytest-m64|-I./lib checkspam.pl 2500 5 25 11 150 1 1 1 1|8GB|200000000|50000000"
+    [mcf]="605.mcf_s|mcf_s_base.mytest-m64|inp.in|8GB|200000000|250000000"
+    [deepsjeng]="631.deepsjeng_s|deepsjeng_s_base.mytest-m64|ref.txt|8GB|500000000|250000000"
+    [xz]="657.xz_s|xz_s_base.mytest-m64|cpu2006docs.tar.xz 6643 055ce243071129412e9dd0b3b69a21654033a9b723d874b2015c774fac1553d9713be561ca86f74e4f16f22e664fc17a79f30caa5ad2c04fbc447549c2810fae 1036078272 1111795472 4|16GB|500000000|250000000"
+    [perlbench]="600.perlbench_s|perlbench_s_base.mytest-m64|-I./lib checkspam.pl 2500 5 25 11 150 1 1 1 1|8GB|200000000|250000000"
     #[gcc]="602.gcc_s|sgcc_base.mytest-m64|gcc-pp.c -O5 -fipa-pta -o gcc-pp.opts-O5_-fipa-pta.s|8GB|1000000000|50000000"  # very slow in O3 mode; run separately
-    [omnetpp]="620.omnetpp_s|omnetpp_s_base.mytest-m64|-c General -r 0|8GB|200000000|50000000"
-    [xalancbmk]="623.xalancbmk_s|xalancbmk_s_base.mytest-m64|-v t5.xml xalanc.xsl|8GB|200000000|50000000"
+    [omnetpp]="620.omnetpp_s|omnetpp_s_base.mytest-m64|-c General -r 0|8GB|200000000|250000000"
+    [xalancbmk]="623.xalancbmk_s|xalancbmk_s_base.mytest-m64|-v t5.xml xalanc.xsl|8GB|200000000|250000000"
     #[x264]="625.x264_s|x264_s_base.mytest-m64|--pass 1 --stats x264_stats.log --bitrate 1000 --frames 100 -o BuckBunny_New.264 BuckBunny.yuv 1280x720|8GB|200000000|50000000"  # very slow in O3 mode; run separately
-    [leela]="641.leela_s|leela_s_base.mytest-m64|ref.sgf|8GB|200000000|50000000"
-    [exchange2]="648.exchange2_s|exchange2_s_base.mytest-m64|6|8GB|200000000|50000000"
+    [leela]="641.leela_s|leela_s_base.mytest-m64|ref.sgf|8GB|200000000|250000000"
+    [exchange2]="648.exchange2_s|exchange2_s_base.mytest-m64|6|8GB|200000000|250000000"
     #[cactuBSSN]="607.cactuBSSN_s|cactuBSSN_s_base.mytest-m64|spec_ref.par|8GB|1000000000|50000000"  # very slow in O3 mode; run separately
     # --- Floating point ---
-    [lbm]="619.lbm_s|lbm_s_base.mytest-m64|2000 reference.dat 0 0 200_200_260_ldc.of|8GB|300000000|200000000"
-    [imagick]="638.imagick_s|imagick_s_base.mytest-m64|-limit disk 0 refspeed_input.tga -resize 817% -rotate -2.76 -shave 540x375 -alpha remove -auto-level -contrast-stretch 1x1% -colorspace Lab -channel R -equalize +channel -colorspace sRGB -define histogram:unique-colors=false -adaptive-blur 0x5 -despeckle -auto-gamma -adaptive-sharpen 55 -enhance -brightness-contrast 10x10 -resize 30% refspeed_output.tga|8GB|200000000|50000000"
-    [nab]="644.nab_s|nab_s_base.mytest-m64|3j1n 20140317 220|8GB|200000000|50000000"
+    [lbm]="619.lbm_s|lbm_s_base.mytest-m64|2000 reference.dat 0 0 200_200_260_ldc.of|8GB|300000000|250000000"
+    [imagick]="638.imagick_s|imagick_s_base.mytest-m64|-limit disk 0 refspeed_input.tga -resize 817% -rotate -2.76 -shave 540x375 -alpha remove -auto-level -contrast-stretch 1x1% -colorspace Lab -channel R -equalize +channel -colorspace sRGB -define histogram:unique-colors=false -adaptive-blur 0x5 -despeckle -auto-gamma -adaptive-sharpen 55 -enhance -brightness-contrast 10x10 -resize 30% refspeed_output.tga|8GB|200000000|250000000"
+    [nab]="644.nab_s|nab_s_base.mytest-m64|3j1n 20140317 220|8GB|200000000|250000000"
     #[bwaves]="603.bwaves_s|speed_bwaves_base.mytest-m64|bwaves_1|8GB|200000000|50000000"  # crashes: gem5 SE mode stdin redirection bug
     #[wrf]="621.wrf_s|wrf_s_base.mytest-m64||8GB|200000000|50000000"  # crashes: OpenMP/TLS unmapped address 0 in SE mode
     #[cam4]="627.cam4_s|cam4_s_base.mytest-m64||8GB|200000000|50000000"  # crashes: OpenMP/TLS unmapped address 0 in SE mode
@@ -126,6 +128,7 @@ run_bench() {
 
     local outdir=$RESULTS/$L2_SIZE/$policy/$name
     local rundir=$SPEC/$bench_dir/run/run_base_refspeed_mytest-m64.0000
+    local ckpt_dir=$CKPT_BASE/$name/m5out
 
     # Skip if already done
     if [ -s "$outdir/stats.txt" ]; then
@@ -138,12 +141,13 @@ run_bench() {
         return 1
     fi
 
-    mkdir -p "$outdir"
-
-    local ff_flags=()
-    if [ "$fast_forward" -gt 0 ] 2>/dev/null; then
-        ff_flags=(--fast-forward="$fast_forward")
+    # Verify checkpoint exists
+    if ! ls "$ckpt_dir"/cpt.* 1>/dev/null 2>&1; then
+        echo "ERROR [$name]: no checkpoint found in $ckpt_dir"
+        return 1
     fi
+
+    mkdir -p "$outdir"
 
     # DSB parameter overrides (parsed from policy name)
     local dsb_flags
@@ -155,7 +159,7 @@ run_bench() {
         warmup_flags=(--standard-switch=1 --warmup-insts="$WARMUP")
     fi
 
-    echo "==> [$L2_SIZE/$policy/$name] Starting (maxinst=$inst, warmup=$WARMUP, mem=$mem_size, ff=$fast_forward) ..."
+    echo "==> [$L2_SIZE/$policy/$name] Starting (maxinst=$inst, warmup=$WARMUP, mem=$mem_size, checkpoint=$ckpt_dir) ..."
 
     (cd "$rundir" && \
         $GEM5 --outdir="$outdir" \
@@ -168,7 +172,9 @@ run_bench() {
             --mem-size="$mem_size" \
             --maxinst="$inst" \
             "${GEM5_COMMON[@]}" \
-            "${ff_flags[@]}" \
+            --checkpoint-restore=1 \
+            --checkpoint-dir="$ckpt_dir" \
+            --restore-with-cpu=AtomicSimpleCPU \
             "${warmup_flags[@]}" \
             $dsb_flags \
     ) > "$outdir/sim.log" 2>&1
