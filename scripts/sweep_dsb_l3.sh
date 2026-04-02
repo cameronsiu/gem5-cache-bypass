@@ -1,32 +1,29 @@
 #!/bin/bash
-# sweep_dsb.sh
-# Sweep DSB bypass_counter parameter across all benchmarks without recompiling.
-# Reduced from the full parameter sweep -- vbc and rp sub-variants have negligible impact.
+# sweep_dsb_l3.sh
+# Sweep DSB bypass_counter across all benchmarks using the L3-enabled config.
 #
-# Usage:
-#   bash scripts/sweep_dsb.sh                  # full sweep
-#   MAXINST=1000 bash scripts/sweep_dsb.sh     # quick sanity test
-#   BENCHMARKS="mcf omnetpp" bash scripts/sweep_dsb.sh  # specific benchmarks
-#   L2_SIZE=1MB bash scripts/sweep_dsb.sh      # sweep at 1MB L2
+# Fixed hierarchy:
+#   L1I = 32kB, 8-way
+#   L1D = 32kB, 8-way
+#   L2  = 256kB, 8-way
+#   L3  = configurable, default 2MB, 16-way
 
 set +e
 
 GEM5=/opt/gem5/build/X86/gem5.opt
-CONFIG=/workspace/configs/run_spec.py
+CONFIG=/workspace/configs/run_spec_l3.py
 SPEC=/workspace/spec2017/benchspec/CPU
-RESULTS=/workspace/results
+RESULTS=${RESULTS:-/workspace/results_l3}
 MAX_PARALLEL=${MAX_PARALLEL:-1}
-L2_SIZE=${L2_SIZE:-2MB}
-L2_ASSOC=${L2_ASSOC:-16}
+L3_SIZE=${L3_SIZE:-2MB}
+L3_ASSOC=${L3_ASSOC:-16}
 
-# Parameter configurations: "label|bypass_counter|virtual_bypass_counter|random_promotion"
 CONFIGS=(
     "dsb-bc0|0|4|0"
     "dsb-bc2|2|4|0"
     "dsb-bc4|4|4|0"
 )
 
-# Benchmark definitions: name|spec_dir|binary|options|mem_size|fast_forward|maxinst
 declare -A BENCHMARKS_MAP
 BENCHMARKS_MAP=(
     [mcf]="605.mcf_s|mcf_s_base.mytest-m64|inp.in|8GB|0|50000000"
@@ -50,7 +47,7 @@ BENCH_ORDER=(${BENCHMARKS:-omnetpp mcf gcc xalancbmk perlbench x264 leela exchan
 GEM5_COMMON=(
     --cpu-type=DerivO3CPU
     --caches --l2cache
-    --l1d_size=32kB --l1i_size=32kB --l2_size=${L2_SIZE}
+    --l1d_size=32kB --l1i_size=32kB --l1d-assoc=8 --l1i-assoc=8 --l2_size=256kB --l2-assoc=8
 )
 
 run_one() {
@@ -68,12 +65,11 @@ run_one() {
         inst=$bench_maxinst
     fi
 
-    local outdir=$RESULTS/$L2_SIZE/$config_label/$bench_name
+    local outdir=$RESULTS/$L3_SIZE/$config_label/$bench_name
     local rundir=$SPEC/$bench_dir/run/run_base_refspeed_mytest-m64.0000
 
-    # Skip if already done
     if [ -s "$outdir/stats.txt" ]; then
-        echo "SKIP [$L2_SIZE/$config_label/$bench_name]"
+        echo "SKIP [$L3_SIZE/$config_label/$bench_name]"
         return 0
     fi
 
@@ -89,14 +85,14 @@ run_one() {
         ff_flags=(--fast-forward="$fast_forward")
     fi
 
-    echo "==> [$L2_SIZE/$config_label/$bench_name] Starting (bc=$bc vbc=$vbc rp=$rp maxinst=$inst) ..."
+    echo "==> [$L3_SIZE/$config_label/$bench_name] Starting (bc=$bc vbc=$vbc rp=$rp maxinst=$inst) ..."
 
     (cd "$rundir" && \
         $GEM5 --outdir="$outdir" \
             $CONFIG \
             --rp-type=DSBRP \
-            --l2-size="$L2_SIZE" \
-            --l2-assoc="$L2_ASSOC" \
+            --l3-size="$L3_SIZE" \
+            --l3-assoc="$L3_ASSOC" \
             --dsb-bypass-counter="$bc" \
             --dsb-virtual-bypass-counter="$vbc" \
             --dsb-random-promotion="$rp" \
@@ -108,15 +104,14 @@ run_one() {
             "${ff_flags[@]}" \
     ) > "$outdir/sim.log" 2>&1
 
-    echo "==> [$L2_SIZE/$config_label/$bench_name] Done."
+    echo "==> [$L3_SIZE/$config_label/$bench_name] Done."
 }
 
-# --- Main loop ---
 for config_entry in "${CONFIGS[@]}"; do
     IFS='|' read -r label bc vbc rp <<< "$config_entry"
     echo ""
     echo "========================================="
-    echo " Config: $label (bc=$bc vbc=$vbc rp=$rp) | L2: $L2_SIZE"
+    echo " Config: $label (bc=$bc vbc=$vbc rp=$rp) | L2: 256kB | L3: $L3_SIZE"
     echo "========================================="
 
     pids=()
@@ -124,10 +119,9 @@ for config_entry in "${CONFIGS[@]}"; do
     failed=()
 
     for name in "${BENCH_ORDER[@]}"; do
-        # Skip if already done (don't waste a parallel slot)
-        outdir_check=$RESULTS/$L2_SIZE/$label/$name
+        outdir_check=$RESULTS/$L3_SIZE/$label/$name
         if [ -s "$outdir_check/stats.txt" ]; then
-            echo "SKIP [$L2_SIZE/$label/$name]"
+            echo "SKIP [$L3_SIZE/$label/$name]"
             continue
         fi
 
@@ -156,11 +150,10 @@ for config_entry in "${CONFIGS[@]}"; do
         echo "WARNING: Failed benchmarks for $label: ${failed[*]}"
     fi
 
-    # Quick stats
     echo ""
     echo "--- $label results ---"
     for name in "${BENCH_ORDER[@]}"; do
-        stats="$RESULTS/$L2_SIZE/$label/$name/stats.txt"
+        stats="$RESULTS/$L3_SIZE/$label/$name/stats.txt"
         if [ -f "$stats" ]; then
             l2_mr=$(grep "system.l2.demandMissRate::total" "$stats" | awk '{print $2}')
             l2_rep=$(grep "system.l2.replacements " "$stats" | awk '{print $2}')
@@ -173,5 +166,5 @@ done
 
 echo ""
 echo "========================================="
-echo " Sweep complete. Results in: $RESULTS/$L2_SIZE/"
+echo " Sweep complete. Results in: $RESULTS/$L3_SIZE/"
 echo "========================================="
