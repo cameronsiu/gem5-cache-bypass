@@ -12,7 +12,7 @@
 trap 'echo "Sweep killed. Cleaning up..."; kill 0; exit 1' INT TERM
 
 SIZES=(1MB 2MB 4MB)
-POLICIES=${POLICIES:-"brrip"}
+POLICIES=${POLICIES:-"lru brrip random fifo lfu mru bip second_chance weighted_lru tree_plru ship_mem ship_pc"}
 
 for size in "${SIZES[@]}"; do
     echo ""

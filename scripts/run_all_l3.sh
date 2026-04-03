@@ -28,9 +28,16 @@ POLICY_ORDER=(${POLICIES_OVERRIDE:-dsb lru brrip random fifo tree_plru dsb-bc0 d
 declare -A POLICY_MAP
 POLICY_MAP=(
     [lru]=LRURP
+    [bip]=BIPRP
+    [lfu]=LFURP
+    [mru]=MRURP
     [brrip]=BRRIPRP
     [random]=RandomRP
     [fifo]=FIFORP
+    [second_chance]=SecondChanceRP
+    [ship_mem]=SHiPMemRP
+    [ship_pc]=SHiPPCRP
+    [weighted_lru]=WeightedLRURP
     [tree_plru]=TreePLRURP
     [dsb]=DSBRP
 )
@@ -71,7 +78,7 @@ get_dsb_flags() {
 GEM5_COMMON=(
     --cpu-type=DerivO3CPU
     --caches --l2cache
-    --l1d_size=32kB --l1i_size=32kB --l1d-assoc=8 --l1i-assoc=8 --l2_size=256kB --l2-assoc=8
+    --l1d_size=32kB --l1i_size=32kB --l1d_assoc=8 --l1i_assoc=8 --l2_size=256kB --l2_assoc=8
 )
 
 declare -A BENCHMARKS
@@ -223,9 +230,9 @@ for policy in "${POLICY_ORDER[@]}"; do
     for name in "${BENCH_ORDER[@]}"; do
         stats="$RESULTS/$L3_SIZE/$policy/$name/stats.txt"
         if [ -f "$stats" ]; then
-            l2_mr=$(grep "system.l2.demandMissRate::total" "$stats" | awk '{print $2}')
-            l2_rep=$(grep "system.l2.replacements " "$stats" | awk '{print $2}')
-            echo "  $name:  L2 miss rate = $l2_mr   L2 replacements = $l2_rep"
+            l3_mr=$(grep "system.l3.demandMissRate::total" "$stats" | awk '{print $2}')
+            l3_rep=$(grep "system.l3.replacements " "$stats" | awk '{print $2}')
+            echo "  $name:  L3 miss rate = $l3_mr   L3 replacements = $l3_rep"
         else
             echo "  $name:  (no stats)"
         fi

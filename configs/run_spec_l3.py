@@ -16,9 +16,8 @@ If --rp-type is omitted, defaults to LRURP and is applied to L3 only.
 import os
 import sys
 
-import m5
 from m5.params import NULL
-from m5.objects import Cache, L2XBar
+from m5.objects import Cache
 
 # --- Extract our custom flags before se.py sees them ---
 rp_type = "LRURP"
@@ -69,7 +68,7 @@ _orig_config_cache = CacheConfig.config_cache
 
 
 def _config_cache_with_l3(options, system):
-    """Build the normal cache hierarchy, then insert an L3 between L2 and DRAM."""
+    """Build the normal cache hierarchy, then splice an L3 between L2 and DRAM."""
     options.l1i_size = "32kB"
     options.l1d_size = "32kB"
     options.l1i_assoc = 8
@@ -89,26 +88,22 @@ def _config_cache_with_l3(options, system):
     if not hasattr(system, "l2"):
         raise RuntimeError("run_spec_l3.py requires --l2cache so an L3 can be inserted")
 
-    # Insert an additional shared cache level between the existing L2 and membus.
-    old_mem_side = system.l2.mem_side
-    system.toL3bus = L2XBar(clk_domain=system.cpu_clk_domain)
+    # Insert an additional shared cache level between the existing L2 and
+    # membus. CacheConfig has already connected l2.mem_side directly to
+    # membus.cpu_side_ports, so use PortRef.splice() to rewire that existing
+    # connection instead of attempting to attach l2.mem_side a second time.
     system.l3 = L3Cache(
         clk_domain=system.cpu_clk_domain,
         size=l3_size,
         assoc=l3_assoc,
         replacement_policy=rp_class(**dsb_params),
     )
-
-    system.l2.mem_side = system.toL3bus.cpu_side_ports
-    system.l3.cpu_side = system.toL3bus.mem_side_ports
-    system.l3.mem_side = old_mem_side
+    system.l2.mem_side.splice(system.l3.cpu_side, system.l3.mem_side)
 
     # Disable snoop filters. Not needed for single-core SE mode, and they can
     # conflict with bypass-style replacement policies.
     if hasattr(system, "tol2bus"):
         system.tol2bus.snoop_filter = NULL
-    if hasattr(system, "toL3bus"):
-        system.toL3bus.snoop_filter = NULL
     if hasattr(system, "membus"):
         system.membus.snoop_filter = NULL
 

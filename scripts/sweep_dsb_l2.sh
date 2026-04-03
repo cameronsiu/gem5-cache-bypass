@@ -50,7 +50,7 @@ BENCH_ORDER=(${BENCHMARKS:-omnetpp mcf gcc xalancbmk perlbench x264 leela exchan
 GEM5_COMMON=(
     --cpu-type=DerivO3CPU
     --caches --l2cache
-    --l1d_size=32kB --l1i_size=32kB --l1d-assoc=8 --l1i-assoc=8 --l2_size=${L2_SIZE}
+    --l1d_size=32kB --l1i_size=32kB --l1d_assoc=8 --l1i_assoc=8 --l2_size=${L2_SIZE}
 )
 
 run_one() {

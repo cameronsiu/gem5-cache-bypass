@@ -8,7 +8,7 @@ trap 'echo "Sweep killed. Cleaning up..."; kill 0; exit 1' INT TERM
 # SIZES=(512kB 1MB 2MB 4MB)
 # POLICIES="dsb lru brrip"
 SIZES=(512kB 1MB 2MB)
-POLICIES="brrip"
+POLICIES="random fifo lfu mru bip second_chance weighted_lru tree_plru ship_mem ship_pc"
 
 for size in "${SIZES[@]}"; do
     echo ""

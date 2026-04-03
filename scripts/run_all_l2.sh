@@ -30,9 +30,17 @@ POLICY_ORDER=(${POLICIES_OVERRIDE:-dsb lru brrip random fifo tree_plru dsb-bc0 d
 declare -A POLICY_MAP
 POLICY_MAP=(
     [lru]=LRURP
+    [bip]=BIPRP
+    [dueling]=DuelingRP
+    [lfu]=LFURP
+    [mru]=MRURP
     [brrip]=BRRIPRP
     [random]=RandomRP
     [fifo]=FIFORP
+    [second_chance]=SecondChanceRP
+    [ship_mem]=SHiPMemRP
+    [ship_pc]=SHiPPCRP
+    [weighted_lru]=WeightedLRURP
     [tree_plru]=TreePLRURP
     [dsb]=DSBRP
 )
@@ -77,7 +85,7 @@ get_dsb_flags() {
 GEM5_COMMON=(
     --cpu-type=DerivO3CPU
     --caches --l2cache
-    --l1d_size=32kB --l1i_size=32kB --l1d-assoc=8 --l1i-assoc=8 --l2_size=${L2_SIZE}
+    --l1d_size=32kB --l1i_size=32kB --l1d_assoc=8 --l1i_assoc=8 --l2_size=${L2_SIZE}
 )
 
 # Benchmark definitions: spec_dir | binary | options | mem_size | (unused) | maxinst
