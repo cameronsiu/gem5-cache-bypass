@@ -27,5 +27,4 @@ cd "$GEM5"
 scons build/X86/gem5.opt -j$(nproc)
 
 echo ""
-echo "Build complete. Run a simulation with:"
-echo "  gem5 --outdir=/workspace/results/dsb /workspace/configs/run_dsb.py"
+echo "Build complete."

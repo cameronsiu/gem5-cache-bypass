@@ -38,6 +38,22 @@ for arg in sys.argv:
         dsb_params["virtual_bypass_counter"] = int(arg.split("=", 1)[1])
     elif arg.startswith("--dsb-random-promotion="):
         dsb_params["random_promotion"] = int(arg.split("=", 1)[1])
+    elif arg.startswith("--dsb-minimum-bypass-counter="):
+        dsb_params["minimum_bypass_counter"] = int(arg.split("=", 1)[1])
+    elif arg.startswith("--dsb-enable-bypass="):
+        dsb_params["enable_bypass"] = arg.split("=", 1)[1].lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+    elif arg.startswith("--dsb-enable-aging="):
+        dsb_params["enable_aging"] = arg.split("=", 1)[1].lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
     else:
         new_argv.append(arg)
 sys.argv = new_argv

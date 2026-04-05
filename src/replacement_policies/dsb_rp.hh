@@ -14,6 +14,7 @@ struct CompetitorInfo {
   Addr     competitorTag = 0;   // tag of bypassed line (line that we would have inserted)
   uint32_t competitorWay = 0;   // way of victim line (line that we would have replaced)
   bool     isVirtualBypass = false; // true if we did not bypass, false if we did not
+  bool     skipNextInvalidate = false;
 };
 
 namespace replacement_policy
@@ -38,23 +39,32 @@ class DSB : public Base
 
         ReplaceableEntry* entry;
 
+        bool shouldBypass;
+        
         /**
          * Default constructor. Invalidate data.
          */
-        DSBReplData() : lastTouchTick(0), referenceBit(0), entry(NULL) {}
+        DSBReplData() : lastTouchTick(0), referenceBit(0), entry(NULL), shouldBypass(false) {}
     };
 
     mutable std::unordered_map<uint32_t, CompetitorInfo> competitorMap;
 
     const int randomPromotion;
+    const bool enableBypass;
+    const bool enableAging;
     mutable int bypass_counter;
     const int virtual_bypass_counter;
+    const int minimum_bypass_counter; // 8, 12, 12 (256, 4096, 4096)
+    
+    // bypass on or off (true initially)
+    mutable bool bypass = true;
 
     // Instrumentation counters
     mutable uint64_t stat_getVictimCalls = 0;
     mutable uint64_t stat_realBypassStarted = 0;
     mutable uint64_t stat_virtualBypassStarted = 0;
     mutable uint64_t stat_noTracking = 0;
+    mutable uint64_t stat_episodeProtected = 0;
     mutable uint64_t stat_touchResolved = 0;
     mutable uint64_t stat_touchRealBypassEffective = 0;   // hit to victim way during real bypass
     mutable uint64_t stat_touchVirtualBypassIneffective = 0; // hit to inserted line during virtual
