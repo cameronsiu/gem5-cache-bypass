@@ -104,6 +104,17 @@ class Base : public SimObject
                            const ReplacementCandidates& candidates) const = 0;
 
     /**
+     * Find replacement victim among candidates, with the tag of the incoming
+     * line available for early episode resolution (e.g. DSB).
+     * Default implementation ignores incomingTag.
+     */
+    virtual ReplaceableEntry* getVictim(
+                           const ReplacementCandidates& candidates,
+                           Addr incomingTag) const {
+        return getVictim(candidates);
+    }
+
+    /**
      * Notify the policy that a bypass occurred.
      *
      * @param replacement_data Replacement data of the victim that survived.

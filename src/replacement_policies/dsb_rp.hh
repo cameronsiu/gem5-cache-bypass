@@ -10,10 +10,9 @@ struct DSBRPParams;
 
 struct CompetitorInfo {
   bool     competitorValid = false; // whether a bypass episode is currently active
-  bool     startBypass = false;     // whether a bypass started
-  Addr     competitorTag = 0;   // tag of bypassed line (line that we would have inserted)
+  Addr     competitorTag = 0;   // tag of bypassed/evicted line being tracked
   uint32_t competitorWay = 0;   // way of victim line (line that we would have replaced)
-  bool     isVirtualBypass = false; // true if we did not bypass, false if we did not
+  bool     isVirtualBypass = false; // true if virtual bypass, false if real bypass
   bool     skipNextInvalidate = false;
 };
 
@@ -39,12 +38,10 @@ class DSB : public Base
 
         ReplaceableEntry* entry;
 
-        bool shouldBypass;
-        
         /**
          * Default constructor. Invalidate data.
          */
-        DSBReplData() : lastTouchTick(0), referenceBit(0), entry(NULL), shouldBypass(false) {}
+        DSBReplData() : lastTouchTick(0), referenceBit(0), entry(NULL) {}
     };
 
     mutable std::unordered_map<uint32_t, CompetitorInfo> competitorMap;
@@ -64,7 +61,6 @@ class DSB : public Base
     mutable uint64_t stat_realBypassStarted = 0;
     mutable uint64_t stat_virtualBypassStarted = 0;
     mutable uint64_t stat_noTracking = 0;
-    mutable uint64_t stat_episodeProtected = 0;
     mutable uint64_t stat_touchResolved = 0;
     mutable uint64_t stat_touchRealBypassEffective = 0;   // hit to victim way during real bypass
     mutable uint64_t stat_touchVirtualBypassIneffective = 0; // hit to inserted line during virtual
@@ -109,21 +105,23 @@ class DSB : public Base
 
     /**
      * Find replacement victim using LRU timestamps.
-     *
-     * @param candidates Replacement candidates, selected by indexing policy.
-     * @return Replacement entry to be replaced.
+     * Delegates to the tag-aware overload with incomingTag=0.
      */
     ReplaceableEntry* getVictim(const ReplacementCandidates& candidates) const
-                                                                     override;
+                                                                     override {
+        return getVictim(candidates, 0);
+    }
 
     /**
-     * Notify DSB that a bypass occurred, providing the bypassed line's tag.
+     * Find replacement victim, resolving any in-flight bypass episode for
+     * the incoming tag before making the bypass/no-bypass decision.
      *
-     * @param replacement_data Replacement data of the victim that survived.
-     * @param bypassedTag The tag of the line that was bypassed.
+     * @param candidates Replacement candidates, selected by indexing policy.
+     * @param incomingTag Tag of the cache line being fetched (0 = unknown).
+     * @return Replacement entry to be replaced.
      */
-    void notifyBypass(const std::shared_ptr<ReplacementData>& replacement_data,
-                      Addr bypassedTag) override;
+    ReplaceableEntry* getVictim(const ReplacementCandidates& candidates,
+                                Addr incomingTag) const override;
 
     /**
      * Instantiate a replacement data entry.

@@ -173,9 +173,13 @@ class BaseSetAssoc : public BaseTags
         const std::vector<ReplaceableEntry*> entries =
             indexingPolicy->getPossibleEntries(addr);
 
+        // Extract incoming tag so DSB can resolve in-flight bypass episodes
+        // before selecting a victim and starting a new episode.
+        Addr incomingTag = indexingPolicy->extractTag(addr);
+
         // Choose replacement victim from replacement candidates
         CacheBlk* victim = static_cast<CacheBlk*>(replacementPolicy->getVictim(
-                                entries));
+                                entries, incomingTag));
 
         // There is only one eviction for this replacement
         evict_blks.push_back(victim);
