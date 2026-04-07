@@ -1,0 +1,43 @@
+warn: The `get_runtime_isa` function is deprecated. Please migrate away from using this function.
+warn: The se.py script is deprecated. It will be removed in future releases of  gem5.
+warn: The `get_runtime_isa` function is deprecated. Please migrate away from using this function.
+Global frequency set at 1000000000000 ticks per second
+src/base/statistics.hh:279: warn: One of the stats is a legacy stat. Legacy stat is a stat that does not belong to any statistics::Group. Legacy stat is deprecated.
+src/base/remote_gdb.cc:418: warn: Sockets disabled, not accepting gdb connections
+src/sim/process.cc:396: warn: Checkpoints for pipes, device drivers and sockets do not work.
+gem5 Simulator System.  https://www.gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 version 23.0.0.1
+gem5 compiled Apr  6 2026 01:50:35
+gem5 started Apr  6 2026 10:53:07
+gem5 executing on b49ce2a326be, pid 188752
+command line: /opt/gem5/build/X86/gem5.opt --outdir=/workspace/results_l3/2MB/policy0Config2/gcc /workspace/configs/run_spec_l3.py --rp-type=DSBRP --l3-size=2MB --l3-assoc=16 --cpu-type=DerivO3CPU --cmd=./sgcc_base.gem5-x86 '--options=gcc-pp.c -O5 -fipa-pta -o gcc-pp.opts-O5_-fipa-pta.s' --mem-size=8GB --maxinst=250000000 --caches --l2cache --l1d_size=32kB --l1i_size=32kB --l1d_assoc=8 --l1i_assoc=8 --l2_size=256kB --l2_assoc=8 --checkpoint-restore=1 --checkpoint-dir=/workspace/checkpoints/gcc/m5out --restore-with-cpu=AtomicSimpleCPU --standard-switch=1 --warmup-insts=50000000 --dsb-enable-bypass=true --dsb-enable-aging=false --dsb-bypass-counter=6 --dsb-virtual-bypass-counter=3 --dsb-random-promotion=0 --dsb-minimum-bypass-counter=12
+
+info: Standard input is not a terminal, disabling listeners.
+Replacement policy: DSBRP
+L1I size: 32kB, assoc: 8
+L1D size: 32kB, assoc: 8
+L2 size: 256kB, assoc: 8
+L3 size: 2MB, L3 assoc: 16
+Switch at instruction count:1
+src/sim/simulate.cc:194: info: Entering event queue @ 27766339396500.  Starting simulation...
+src/sim/simulate.cc:194: info: Entering event queue @ 27766339398500.  Starting simulation...
+src/sim/power_state.cc:105: warn: PowerState: Already in the requested power state, request ignored
+Switched CPUS @ tick 27766339398500
+switching cpus
+Switch at instruction count:50000000
+src/sim/simulate.cc:194: info: Entering event queue @ 27766339399000.  Starting simulation...
+[DSB @ 100000 calls] bc=11 isBypassOn=true| real=6243 virt=11682 notrack=82074 | touchRes=7840(eff=1416,ineff=6424) resetRes=1875(ineff=874,eff=1001) | bc++=7298 bc--=2417 inv=4701
+src/sim/simulate.cc:194: info: Entering event queue @ 27882648938500.  Starting simulation...
+Switching CPUS @ tick 27882648938500
+Simulation ends instruction count:250000000
+switching cpus
+**** REAL SIMULATION ****
+src/sim/simulate.cc:194: info: Entering event queue @ 27882649079750.  Starting simulation...
+[DSB @ 200000 calls] bc=11 isBypassOn=true| real=10112 virt=23732 notrack=166155 | touchRes=14546(eff=2486,ineff=12060) resetRes=4431(ineff=1789,eff=2642) | bc++=13849 bc--=5128 inv=9660
+[DSB @ 300000 calls] bc=10 isBypassOn=true| real=16849 virt=35551 notrack=247599 | touchRes=20647(eff=4191,ineff=16456) resetRes=6954(ineff=2911,eff=4043) | bc++=19367 bc--=8234 inv=16364
+[DSB @ 400000 calls] bc=3 isBypassOn=true| real=26933 virt=46591 notrack=326475 | touchRes=26716(eff=6174,ineff=20542) resetRes=9178(ineff=3815,eff=5363) | bc++=24357 bc--=11537 inv=23124
+[DSB @ 500000 calls] bc=12 isBypassOn=false| real=29715 virt=58770 notrack=411514 | touchRes=33329(eff=7246,ineff=26083) resetRes=11709(ineff=4822,eff=6887) | bc++=30905 bc--=14133 inv=28493
+[DSB @ 600000 calls] bc=12 isBypassOn=false| real=29751 virt=71146 notrack=499102 | touchRes=39740(eff=7258,ineff=32482) resetRes=13390(ineff=4834,eff=8556) | bc++=37316 bc--=15814 inv=32256
+Exiting @ tick 28056897902500 because a thread reached the max instruction count

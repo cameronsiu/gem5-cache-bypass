@@ -1,0 +1,55 @@
+warn: The `get_runtime_isa` function is deprecated. Please migrate away from using this function.
+warn: The se.py script is deprecated. It will be removed in future releases of  gem5.
+warn: The `get_runtime_isa` function is deprecated. Please migrate away from using this function.
+Global frequency set at 1000000000000 ticks per second
+src/base/statistics.hh:279: warn: One of the stats is a legacy stat. Legacy stat is a stat that does not belong to any statistics::Group. Legacy stat is deprecated.
+src/base/remote_gdb.cc:418: warn: Sockets disabled, not accepting gdb connections
+src/sim/process.cc:396: warn: Checkpoints for pipes, device drivers and sockets do not work.
+gem5 Simulator System.  https://www.gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 version 23.0.0.1
+gem5 compiled Apr  6 2026 01:50:35
+gem5 started Apr  6 2026 09:37:51
+gem5 executing on b49ce2a326be, pid 174623
+command line: /opt/gem5/build/X86/gem5.opt --outdir=/workspace/results_l3/2MB/policy0Config1/xalancbmk /workspace/configs/run_spec_l3.py --rp-type=DSBRP --l3-size=2MB --l3-assoc=16 --cpu-type=DerivO3CPU --cmd=./xalancbmk_s_base.gem5-x86 '--options=-v t5.xml xalanc.xsl' --mem-size=8GB --maxinst=250000000 --caches --l2cache --l1d_size=32kB --l1i_size=32kB --l1d_assoc=8 --l1i_assoc=8 --l2_size=256kB --l2_assoc=8 --checkpoint-restore=1 --checkpoint-dir=/workspace/checkpoints/xalancbmk/m5out --restore-with-cpu=AtomicSimpleCPU --standard-switch=1 --warmup-insts=50000000 --dsb-enable-bypass=true --dsb-enable-aging=false --dsb-bypass-counter=6 --dsb-virtual-bypass-counter=4 --dsb-random-promotion=0 --dsb-minimum-bypass-counter=8
+
+info: Standard input is not a terminal, disabling listeners.
+Replacement policy: DSBRP
+L1I size: 32kB, assoc: 8
+L1D size: 32kB, assoc: 8
+L2 size: 256kB, assoc: 8
+L3 size: 2MB, L3 assoc: 16
+Switch at instruction count:1
+src/sim/simulate.cc:194: info: Entering event queue @ 27962974663500.  Starting simulation...
+src/sim/simulate.cc:194: info: Entering event queue @ 27962974665000.  Starting simulation...
+src/sim/power_state.cc:105: warn: PowerState: Already in the requested power state, request ignored
+Switched CPUS @ tick 27962974665000
+switching cpus
+Switch at instruction count:50000000
+src/sim/simulate.cc:194: info: Entering event queue @ 27962974666000.  Starting simulation...
+[DSB @ 100000 calls] bc=8 isBypassOn=false| real=7557 virt=5750 notrack=86692 | touchRes=4923(eff=2221,ineff=2702) resetRes=112(ineff=90,eff=22) | bc++=2792 bc--=2243 inv=3675
+[DSB @ 200000 calls] bc=0 isBypassOn=true| real=55274 virt=9091 notrack=135634 | touchRes=18664(eff=14851,ineff=3813) resetRes=976(ineff=823,eff=153) | bc++=4636 bc--=15004 inv=8618
+src/sim/simulate.cc:194: info: Entering event queue @ 28102989299500.  Starting simulation...
+Switching CPUS @ tick 28102989299500
+Simulation ends instruction count:250000000
+switching cpus
+**** REAL SIMULATION ****
+src/sim/simulate.cc:194: info: Entering event queue @ 28102989407000.  Starting simulation...
+[DSB @ 300000 calls] bc=0 isBypassOn=true| real=127045 virt=10856 notrack=162098 | touchRes=43358(eff=38919,ineff=4439) resetRes=2391(ineff=2076,eff=315) | bc++=6515 bc--=39234 inv=12186
+[DSB @ 400000 calls] bc=8 isBypassOn=false| real=148711 virt=15614 notrack=235674 | touchRes=48911(eff=43320,ineff=5591) resetRes=2958(ineff=2574,eff=384) | bc++=8165 bc--=43704 inv=18017
+[DSB @ 500000 calls] bc=0 isBypassOn=true| real=191491 virt=19245 notrack=289263 | touchRes=64262(eff=57527,ineff=6735) resetRes=3771(ineff=3264,eff=507) | bc++=9999 bc--=58034 inv=22634
+[DSB @ 600000 calls] bc=0 isBypassOn=true| real=263537 virt=20965 notrack=315497 | touchRes=97942(eff=90644,ineff=7298) resetRes=5286(ineff=4605,eff=681) | bc++=11903 bc--=91325 inv=25469
+[DSB @ 700000 calls] bc=8 isBypassOn=false| real=300784 virt=24975 notrack=374240 | touchRes=103980(eff=95760,ineff=8220) resetRes=5788(ineff=5018,eff=770) | bc++=13238 bc--=96530 inv=33604
+[DSB @ 800000 calls] bc=0 isBypassOn=true| real=327250 virt=29635 notrack=443114 | touchRes=111785(eff=102057,ineff=9728) resetRes=6449(ineff=5527,eff=922) | bc++=15255 bc--=102979 inv=38420
+[DSB @ 900000 calls] bc=8 isBypassOn=false| real=365343 virt=33494 notrack=501162 | touchRes=122084(eff=111320,ineff=10764) resetRes=7199(ineff=6195,eff=1004) | bc++=16959 bc--=112324 inv=45268
+[DSB @ 1000000 calls] bc=8 isBypassOn=false| real=407644 virt=37202 notrack=555153 | touchRes=135356(eff=123513,ineff=11843) resetRes=7524(ineff=6416,eff=1108) | bc++=18259 bc--=124621 inv=50668
+[DSB @ 1100000 calls] bc=0 isBypassOn=true| real=464183 virt=39890 notrack=595926 | touchRes=148103(eff=135492,ineff=12611) resetRes=8781(ineff=7551,eff=1230) | bc++=20162 bc--=136722 inv=57980
+[DSB @ 1200000 calls] bc=0 isBypassOn=true| real=480909 virt=45263 notrack=673827 | touchRes=152962(eff=138926,ineff=14036) resetRes=9638(ineff=8319,eff=1319) | bc++=22355 bc--=140245 inv=63885
+[DSB @ 1300000 calls] bc=5 isBypassOn=true| real=515079 virt=49458 notrack=735462 | touchRes=164094(eff=148860,ineff=15234) resetRes=10105(ineff=8700,eff=1405) | bc++=23934 bc--=150265 inv=69995
+[DSB @ 1400000 calls] bc=8 isBypassOn=false| real=545139 virt=53940 notrack=800920 | touchRes=171947(eff=155494,ineff=16453) resetRes=10970(ineff=9483,eff=1487) | bc++=25936 bc--=156981 inv=76195
+[DSB @ 1500000 calls] bc=8 isBypassOn=false| real=607261 virt=56304 notrack=836434 | touchRes=190113(eff=172852,ineff=17261) resetRes=11899(ineff=10339,eff=1560) | bc++=27600 bc--=174412 inv=81586
+[DSB @ 1600000 calls] bc=0 isBypassOn=true| real=637412 virt=60697 notrack=901890 | touchRes=199124(eff=180570,ineff=18554) resetRes=12236(ineff=10542,eff=1694) | bc++=29096 bc--=182264 inv=87942
+[DSB @ 1700000 calls] bc=0 isBypassOn=true| real=664008 virt=65313 notrack=970678 | touchRes=205513(eff=185597,ineff=19916) resetRes=12455(ineff=10671,eff=1784) | bc++=30587 bc--=187381 inv=94213
+[DSB @ 1800000 calls] bc=1 isBypassOn=true| real=708502 virt=68728 notrack=1022769 | touchRes=217586(eff=196761,ineff=20825) resetRes=13249(ineff=11370,eff=1879) | bc++=32195 bc--=198640 inv=100049
+Exiting @ tick 28386765100000 because a thread reached the max instruction count

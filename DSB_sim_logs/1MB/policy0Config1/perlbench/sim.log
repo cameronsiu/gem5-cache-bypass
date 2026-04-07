@@ -1,0 +1,41 @@
+warn: The `get_runtime_isa` function is deprecated. Please migrate away from using this function.
+warn: The se.py script is deprecated. It will be removed in future releases of  gem5.
+warn: The `get_runtime_isa` function is deprecated. Please migrate away from using this function.
+Global frequency set at 1000000000000 ticks per second
+src/base/statistics.hh:279: warn: One of the stats is a legacy stat. Legacy stat is a stat that does not belong to any statistics::Group. Legacy stat is deprecated.
+src/base/remote_gdb.cc:418: warn: Sockets disabled, not accepting gdb connections
+src/sim/process.cc:396: warn: Checkpoints for pipes, device drivers and sockets do not work.
+gem5 Simulator System.  https://www.gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 version 23.0.0.1
+gem5 compiled Apr  6 2026 01:50:35
+gem5 started Apr  6 2026 02:13:18
+gem5 executing on b49ce2a326be, pid 97539
+command line: /opt/gem5/build/X86/gem5.opt --outdir=/workspace/results_l3/1MB/policy0Config1/perlbench /workspace/configs/run_spec_l3.py --rp-type=DSBRP --l3-size=1MB --l3-assoc=16 --cpu-type=DerivO3CPU --cmd=./perlbench_s_base.gem5-x86 '--options=-I./lib checkspam.pl 2500 5 25 11 150 1 1 1 1' --mem-size=8GB --maxinst=250000000 --caches --l2cache --l1d_size=32kB --l1i_size=32kB --l1d_assoc=8 --l1i_assoc=8 --l2_size=256kB --l2_assoc=8 --checkpoint-restore=1 --checkpoint-dir=/workspace/checkpoints/perlbench/m5out --restore-with-cpu=AtomicSimpleCPU --standard-switch=1 --warmup-insts=50000000 --dsb-enable-bypass=true --dsb-enable-aging=false --dsb-bypass-counter=6 --dsb-virtual-bypass-counter=4 --dsb-random-promotion=0 --dsb-minimum-bypass-counter=8
+
+info: Standard input is not a terminal, disabling listeners.
+Replacement policy: DSBRP
+L1I size: 32kB, assoc: 8
+L1D size: 32kB, assoc: 8
+L2 size: 256kB, assoc: 8
+L3 size: 1MB, L3 assoc: 16
+Switch at instruction count:1
+src/sim/simulate.cc:194: info: Entering event queue @ 27945348329000.  Starting simulation...
+src/sim/simulate.cc:194: info: Entering event queue @ 27945348331000.  Starting simulation...
+src/sim/power_state.cc:105: warn: PowerState: Already in the requested power state, request ignored
+Switched CPUS @ tick 27945348331000
+switching cpus
+Switch at instruction count:50000000
+src/sim/simulate.cc:194: info: Entering event queue @ 27945348332000.  Starting simulation...
+[DSB @ 100000 calls] bc=0 isBypassOn=true| real=36481 virt=3989 notrack=59529 | touchRes=8851(eff=7663,ineff=1188) resetRes=2574(ineff=2265,eff=309) | bc++=3453 bc--=7972 inv=8502
+src/sim/simulate.cc:194: info: Entering event queue @ 28062126875000.  Starting simulation...
+Switching CPUS @ tick 28062126875000
+Simulation ends instruction count:250000000
+switching cpus
+**** REAL SIMULATION ****
+src/sim/simulate.cc:194: info: Entering event queue @ 28062127026250.  Starting simulation...
+[DSB @ 200000 calls] bc=8 isBypassOn=false| real=76660 virt=7797 notrack=115542 | touchRes=16523(eff=14698,ineff=1825) resetRes=5150(ineff=4453,eff=697) | bc++=6278 bc--=15395 inv=19176
+[DSB @ 300000 calls] bc=5 isBypassOn=true| real=115973 virt=11668 notrack=172358 | touchRes=25006(eff=22351,ineff=2655) resetRes=8035(ineff=6910,eff=1125) | bc++=9565 bc--=23476 inv=28819
+[DSB @ 400000 calls] bc=8 isBypassOn=false| real=145074 virt=15988 notrack=238937 | touchRes=30741(eff=27267,ineff=3474) resetRes=9981(ineff=8466,eff=1515) | bc++=11940 bc--=28782 inv=37929
+Exiting @ tick 28228484471000 because a thread reached the max instruction count

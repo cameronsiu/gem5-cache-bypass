@@ -1,0 +1,79 @@
+warn: The `get_runtime_isa` function is deprecated. Please migrate away from using this function.
+warn: The se.py script is deprecated. It will be removed in future releases of  gem5.
+warn: The `get_runtime_isa` function is deprecated. Please migrate away from using this function.
+Global frequency set at 1000000000000 ticks per second
+src/base/statistics.hh:279: warn: One of the stats is a legacy stat. Legacy stat is a stat that does not belong to any statistics::Group. Legacy stat is deprecated.
+src/base/remote_gdb.cc:418: warn: Sockets disabled, not accepting gdb connections
+src/sim/process.cc:396: warn: Checkpoints for pipes, device drivers and sockets do not work.
+gem5 Simulator System.  https://www.gem5.org
+gem5 is copyrighted software; use the --copyright option for details.
+
+gem5 version 23.0.0.1
+gem5 compiled Apr  6 2026 01:50:35
+gem5 started Apr  6 2026 10:53:07
+gem5 executing on b49ce2a326be, pid 188749
+command line: /opt/gem5/build/X86/gem5.opt --outdir=/workspace/results_l3/2MB/policy0Config2/omnetpp /workspace/configs/run_spec_l3.py --rp-type=DSBRP --l3-size=2MB --l3-assoc=16 --cpu-type=DerivO3CPU --cmd=./omnetpp_s_base.gem5-x86 '--options=-c General -r 0' --mem-size=8GB --maxinst=250000000 --caches --l2cache --l1d_size=32kB --l1i_size=32kB --l1d_assoc=8 --l1i_assoc=8 --l2_size=256kB --l2_assoc=8 --checkpoint-restore=1 --checkpoint-dir=/workspace/checkpoints/omnetpp/m5out --restore-with-cpu=AtomicSimpleCPU --standard-switch=1 --warmup-insts=50000000 --dsb-enable-bypass=true --dsb-enable-aging=false --dsb-bypass-counter=6 --dsb-virtual-bypass-counter=3 --dsb-random-promotion=0 --dsb-minimum-bypass-counter=12
+
+info: Standard input is not a terminal, disabling listeners.
+Replacement policy: DSBRP
+L1I size: 32kB, assoc: 8
+L1D size: 32kB, assoc: 8
+L2 size: 256kB, assoc: 8
+L3 size: 2MB, L3 assoc: 16
+Switch at instruction count:1
+src/sim/simulate.cc:194: info: Entering event queue @ 27633443439000.  Starting simulation...
+src/sim/power_state.cc:105: warn: PowerState: Already in the requested power state, request ignored
+Switched CPUS @ tick 27633443440000
+switching cpus
+Switch at instruction count:50000000
+src/sim/simulate.cc:194: info: Entering event queue @ 27633443440000.  Starting simulation...
+[DSB @ 100000 calls] bc=0 isBypassOn=true| real=25255 virt=9223 notrack=65521 | touchRes=7253(eff=3458,ineff=3795) resetRes=1418(ineff=882,eff=536) | bc++=4677 bc--=3994 inv=7236
+[DSB @ 200000 calls] bc=1 isBypassOn=true| real=92311 virt=13308 notrack=94380 | touchRes=16574(eff=12444,ineff=4130) resetRes=4288(ineff=3467,eff=821) | bc++=7597 bc--=13265 inv=20784
+[DSB @ 300000 calls] bc=1 isBypassOn=true| real=151569 virt=18376 notrack=130054 | touchRes=25398(eff=20796,ineff=4602) resetRes=7145(ineff=5944,eff=1201) | bc++=10546 bc--=21997 inv=34436
+[DSB @ 400000 calls] bc=1 isBypassOn=true| real=222066 virt=22044 notrack=155889 | touchRes=35076(eff=30137,ineff=4939) resetRes=10295(ineff=8852,eff=1443) | bc++=13791 bc--=31580 inv=48358
+[DSB @ 500000 calls] bc=0 isBypassOn=true| real=293609 virt=25609 notrack=180781 | touchRes=44864(eff=39603,ineff=5261) resetRes=13585(ineff=11909,eff=1676) | bc++=17170 bc--=41279 inv=62317
+[DSB @ 600000 calls] bc=0 isBypassOn=true| real=355206 virt=30444 notrack=214349 | touchRes=54181(eff=48451,ineff=5730) resetRes=16545(ineff=14510,eff=2035) | bc++=20240 bc--=50486 inv=76633
+src/sim/simulate.cc:194: info: Entering event queue @ 27788469534500.  Starting simulation...
+Switching CPUS @ tick 27788469534500
+Simulation ends instruction count:250000000
+switching cpus
+**** REAL SIMULATION ****
+src/sim/simulate.cc:194: info: Entering event queue @ 27788469740500.  Starting simulation...
+[DSB @ 700000 calls] bc=1 isBypassOn=true| real=425573 virt=34103 notrack=240323 | touchRes=64184(eff=58075,ineff=6109) resetRes=19631(ineff=17363,eff=2268) | bc++=23472 bc--=60343 inv=90436
+[DSB @ 800000 calls] bc=9 isBypassOn=true| real=470552 virt=41089 notrack=288358 | touchRes=70983(eff=64211,ineff=6772) resetRes=22202(ineff=19401,eff=2801) | bc++=26173 bc--=67012 inv=103616
+[DSB @ 900000 calls] bc=3 isBypassOn=true| real=537763 virt=45217 notrack=317019 | touchRes=80519(eff=73275,ineff=7244) resetRes=25298(ineff=22172,eff=3126) | bc++=29416 bc--=76401 inv=117090
+[DSB @ 1000000 calls] bc=0 isBypassOn=true| real=607638 virt=48918 notrack=343443 | touchRes=90734(eff=83033,ineff=7701) resetRes=28718(ineff=25358,eff=3360) | bc++=33059 bc--=86393 inv=131344
+[DSB @ 1100000 calls] bc=1 isBypassOn=true| real=671716 virt=53418 notrack=374865 | touchRes=100060(eff=91906,ineff=8154) resetRes=31824(ineff=28159,eff=3665) | bc++=36313 bc--=95571 inv=145467
+[DSB @ 1200000 calls] bc=1 isBypassOn=true| real=739232 virt=57487 notrack=403280 | touchRes=109633(eff=101045,ineff=8588) resetRes=35008(ineff=31080,eff=3928) | bc++=39668 bc--=104973 inv=159628
+[DSB @ 1300000 calls] bc=4 isBypassOn=true| real=798379 virt=62607 notrack=439013 | touchRes=118624(eff=109496,ineff=9128) resetRes=38107(ineff=33799,eff=4308) | bc++=42927 bc--=113804 inv=173738
+[DSB @ 1400000 calls] bc=12 isBypassOn=false| real=842527 virt=69728 notrack=487744 | touchRes=126125(eff=116226,ineff=9899) resetRes=40769(ineff=35895,eff=4874) | bc++=45794 bc--=121100 inv=187652
+[DSB @ 1500000 calls] bc=0 isBypassOn=true| real=897527 virt=75317 notrack=527155 | touchRes=134970(eff=124431,ineff=10539) resetRes=43594(ineff=38273,eff=5321) | bc++=48812 bc--=129752 inv=200899
+[DSB @ 1600000 calls] bc=0 isBypassOn=true| real=963134 virt=79649 notrack=557216 | touchRes=144412(eff=133417,ineff=10995) resetRes=46794(ineff=41158,eff=5636) | bc++=52153 bc--=139053 inv=214596
+[DSB @ 1700000 calls] bc=3 isBypassOn=true| real=1017341 virt=85410 notrack=597248 | touchRes=152653(eff=141079,ineff=11574) resetRes=49682(ineff=43614,eff=6068) | bc++=55188 bc--=147147 inv=228081
+[DSB @ 1800000 calls] bc=0 isBypassOn=true| real=1082835 virt=89758 notrack=627406 | touchRes=161969(eff=149950,ineff=12019) resetRes=52725(ineff=46348,eff=6377) | bc++=58367 bc--=156327 inv=241985
+[DSB @ 1900000 calls] bc=2 isBypassOn=true| real=1154450 virt=93314 notrack=652235 | touchRes=172079(eff=159671,ineff=12408) resetRes=56149(ineff=49535,eff=6614) | bc++=61943 bc--=166285 inv=256211
+[DSB @ 2000000 calls] bc=0 isBypassOn=true| real=1226842 virt=96804 notrack=676353 | touchRes=181934(eff=169165,ineff=12769) resetRes=59493(ineff=52672,eff=6821) | bc++=65441 bc--=175986 inv=270060
+[DSB @ 2100000 calls] bc=3 isBypassOn=true| real=1277512 virt=102904 notrack=719583 | touchRes=190122(eff=176710,ineff=13412) resetRes=62250(ineff=54966,eff=7284) | bc++=68378 bc--=183994 inv=284401
+[DSB @ 2200000 calls] bc=1 isBypassOn=true| real=1348272 virt=106514 notrack=745213 | touchRes=200222(eff=186409,ineff=13813) resetRes=65432(ineff=57904,eff=7528) | bc++=71717 bc--=193937 inv=298409
+[DSB @ 2300000 calls] bc=3 isBypassOn=true| real=1409546 virt=111521 notrack=778932 | touchRes=209113(eff=194781,ineff=14332) resetRes=68487(ineff=60591,eff=7896) | bc++=74923 bc--=202677 inv=312121
+[DSB @ 2400000 calls] bc=12 isBypassOn=false| real=1475337 virt=115910 notrack=808752 | touchRes=218538(eff=203752,ineff=14786) resetRes=71862(ineff=63672,eff=8190) | bc++=78458 bc--=211942 inv=326526
+[DSB @ 2500000 calls] bc=0 isBypassOn=true| real=1535870 virt=120876 notrack=843253 | touchRes=227531(eff=212203,ineff=15328) resetRes=74839(ineff=66251,eff=8588) | bc++=81579 bc--=220791 inv=339676
+[DSB @ 2600000 calls] bc=3 isBypassOn=true| real=1605938 virt=124572 notrack=869489 | touchRes=237626(eff=221904,ineff=15722) resetRes=78268(ineff=69446,eff=8822) | bc++=85168 bc--=230726 inv=353810
+[DSB @ 2700000 calls] bc=0 isBypassOn=true| real=1676716 virt=128220 notrack=895063 | touchRes=247724(eff=231590,ineff=16134) resetRes=81663(ineff=72637,eff=9026) | bc++=88771 bc--=240616 inv=368039
+[DSB @ 2800000 calls] bc=0 isBypassOn=true| real=1746167 virt=132006 notrack=921826 | touchRes=257608(eff=241064,ineff=16544) resetRes=84926(ineff=75641,eff=9285) | bc++=92185 bc--=250349 inv=382014
+[DSB @ 2900000 calls] bc=11 isBypassOn=true| real=1810490 virt=136427 notrack=953082 | touchRes=267059(eff=250098,ineff=16961) resetRes=88193(ineff=78622,eff=9571) | bc++=95583 bc--=259669 inv=396951
+[DSB @ 3000000 calls] bc=2 isBypassOn=true| real=1872459 virt=141227 notrack=986313 | touchRes=276259(eff=258793,ineff=17466) resetRes=91235(ineff=81311,eff=9924) | bc++=98777 bc--=268717 inv=410471
+[DSB @ 3100000 calls] bc=1 isBypassOn=true| real=1937201 virt=145629 notrack=1017169 | touchRes=285605(eff=267677,ineff=17928) resetRes=94400(ineff=84160,eff=10240) | bc++=102088 bc--=277917 inv=424581
+[DSB @ 3200000 calls] bc=12 isBypassOn=true| real=1989977 virt=151426 notrack=1058596 | touchRes=294036(eff=275545,ineff=18491) resetRes=97398(ineff=86752,eff=10646) | bc++=105243 bc--=286191 inv=439125
+[DSB @ 3300000 calls] bc=0 isBypassOn=true| real=2031595 virt=158762 notrack=1109642 | touchRes=301274(eff=281948,ineff=19326) resetRes=99668(ineff=88418,eff=11250) | bc++=107744 bc--=293198 inv=451710
+[DSB @ 3400000 calls] bc=1 isBypassOn=true| real=2097877 virt=163005 notrack=1139117 | touchRes=310838(eff=291059,ineff=19779) resetRes=102820(ineff=91298,eff=11522) | bc++=111077 bc--=302581 inv=465914
+[DSB @ 3500000 calls] bc=0 isBypassOn=true| real=2160407 virt=167721 notrack=1171871 | touchRes=319909(eff=299604,ineff=20305) resetRes=105784(ineff=93940,eff=11844) | bc++=114245 bc--=311448 inv=479915
+[DSB @ 3600000 calls] bc=0 isBypassOn=true| real=2229929 virt=171592 notrack=1198478 | touchRes=329796(eff=309084,ineff=20712) resetRes=109129(ineff=97043,eff=12086) | bc++=117755 bc--=321170 inv=494389
+[DSB @ 3700000 calls] bc=0 isBypassOn=true| real=2300488 virt=175293 notrack=1224218 | touchRes=339816(eff=318716,ineff=21100) resetRes=112454(ineff=100152,eff=12302) | bc++=121252 bc--=331018 inv=508555
+[DSB @ 3800000 calls] bc=1 isBypassOn=true| real=2364420 virt=179781 notrack=1255798 | touchRes=349659(eff=328070,ineff=21589) resetRes=115601(ineff=103021,eff=12580) | bc++=124610 bc--=340650 inv=522885
+[DSB @ 3900000 calls] bc=1 isBypassOn=true| real=2432820 virt=183621 notrack=1283558 | touchRes=359616(eff=337640,ineff=21976) resetRes=119031(ineff=106188,eff=12843) | bc++=128164 bc--=350483 inv=537478
+[DSB @ 4000000 calls] bc=0 isBypassOn=true| real=2492457 virt=188660 notrack=1318882 | touchRes=368666(eff=346168,ineff=22498) resetRes=122159(ineff=108927,eff=13232) | bc++=131425 bc--=359400 inv=551116
+[DSB @ 4100000 calls] bc=0 isBypassOn=true| real=2555043 virt=193282 notrack=1351674 | touchRes=377918(eff=354883,ineff=23035) resetRes=125446(ineff=111845,eff=13601) | bc++=134880 bc--=368484 inv=564788
+[DSB @ 4200000 calls] bc=2 isBypassOn=true| real=2619387 virt=197764 notrack=1382848 | touchRes=387770(eff=364245,ineff=23525) resetRes=128828(ineff=114915,eff=13913) | bc++=138440 bc--=378158 inv=579829
+[DSB @ 4300000 calls] bc=0 isBypassOn=true| real=2678334 virt=202884 notrack=1418781 | touchRes=396982(eff=372866,ineff=24116) resetRes=131887(ineff=117604,eff=14283) | bc++=141720 bc--=387149 inv=593977
+Exiting @ tick 28048779435000 because a thread reached the max instruction count
