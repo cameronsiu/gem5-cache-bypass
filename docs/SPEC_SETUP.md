@@ -1,14 +1,16 @@
-# SPEC CPU2017 Setup for gem5
+# SPEC CPU2017 Setup
 
-Instructions for installing and building SPEC CPU2017 benchmarks for use with gem5 SE mode.
+This is the shortest path to get SPEC ready for the scripts in this repo.
 
-## 1. Install SPEC CPU2017
+## Install location
 
-Install from option 2: https://polyarch.github.io/cs251a/resources/spec2017-gem5/
+Put SPEC CPU2017 at:
 
-1. Mount the `.iso` and run `./install.sh`
-2. Copy the installed `spec2017/` directory into the container at `/workspace/spec2017`
-3. Create the gem5 build config:
+```text
+/workspace/spec2017
+```
+
+## Create the gem5 config
 
 ```bash
 cd /workspace/spec2017
@@ -16,88 +18,100 @@ source shrc
 cp config/Example-gcc-linux-x86.cfg config/gem5-x86.cfg
 ```
 
-4. Edit `config/gem5-x86.cfg` -- two required changes:
+Edit `config/gem5-x86.cfg`:
 
-   **Line ~138** -- point `gcc_dir` at the system compiler:
-   ```
-   %   define  gcc_dir        /usr  # EDIT (see above)
-   ```
+1. Set:
 
-   **Line ~237** -- change the `OPTIMIZE` flags:
-   ```
-   OPTIMIZE = -g -O3 -march=x86-64 -fno-unsafe-math-optimizations -fno-tree-loop-vectorize -static
-   ```
+```text
+%   define  gcc_dir        /usr
+```
 
-   Why `-static`: gem5's syscall-emulation (SE) mode does not emulate a dynamic
-   linker, so all benchmarks must be statically linked or they crash on startup.
+2. Set:
 
-   Why `-march=x86-64` (not `-march=native`): the host CPU may support AVX/AVX2
-   instructions, but gem5's X86 CPU model does not. Using `-march=native` produces
-   AVX instructions (e.g. `VBROADCASTSD`) that cause a gem5 panic at runtime.
+```text
+OPTIMIZE = -g -O3 -march=x86-64 -fno-unsafe-math-optimizations -fno-tree-loop-vectorize -static
+```
 
-## 2. Build each benchmark
+Use `-static` because gem5 SE mode needs static binaries.
 
-For each benchmark, the workflow is:
+Use `-march=x86-64` instead of `-march=native` so gem5 does not hit unsupported host-only instructions.
+
+## Build a benchmark
+
+For each benchmark:
 
 ```bash
-cd /workspace/spec2017 && source shrc
+cd /workspace/spec2017
+source shrc
 
-# Generate build/run directories (does not actually compile):
 runcpu --fake --config gem5-x86 <benchmark_name>
-
-# Compile:
 go <benchmark_name>
-cd build/build_base_gem5-x86.0000
+cd benchspec/CPU/<benchmark_name>/build/build_base_gem5-x86.0000
 specmake
+```
 
-# Copy binary to the run directory:
+Copy the built binary into the run directory:
+
+```bash
 cp <binary_name> ../../run/run_base_refspeed_gem5-x86.0000/<binary_name>_base.gem5-x86
+```
 
-# See the native run command (for reference):
+If you want to inspect the native SPEC command:
+
+```bash
 cd ../../run/run_base_refspeed_gem5-x86.0000
 specinvoke -n
 ```
 
-### Fix for 619.lbm_s: obstacle file size check
+## Benchmarks used by the L3 scripts
 
-lbm_s validates the obstacle input file size against compiled-in grid dimensions.
-Under gem5 SE mode, `stat()` returns an incorrect file size (the simulated
-filesystem doesn't match), causing the benchmark to exit before doing any work.
+- `603.bwaves_s`
+- `605.mcf_s`
+- `619.lbm_s`
+- `620.omnetpp_s`
+- `621.wrf_s`
+- `623.xalancbmk_s`
+- `625.x264_s`
+- `627.cam4_s`
+- `628.pop2_s`
+- `631.deepsjeng_s`
+- `638.imagick_s`
+- `641.leela_s`
+- `644.nab_s`
+- `648.exchange2_s`
+- `649.fotonik3d_s`
+- `654.roms_s`
+- `657.xz_s`
+- `600.perlbench_s`
+- `602.gcc_s`
 
-Comment out the size check in `main.c` (lines ~84-91 in the build directory)
-and rebuild:
+## One known fix
 
-```c
-// In benchspec/CPU/619.lbm_s/build/build_base_gem5-x86.0000/main.c
-// Comment out the file size validation block (keep the stat() existence check):
+`619.lbm_s` may fail because of the obstacle file size check under gem5 SE mode.
 
-        if( stat( param->obstacleFilename, &fileStat ) != 0 ) {
-                printf( "MAIN_parseCommandLine: cannot stat obstacle file '%s'\n",
-                         param->obstacleFilename );
-                exit( 1 );
-        }
-/*      if( fileStat.st_size != SIZE_X*SIZE_Y*SIZE_Z+(SIZE_Y+1)*SIZE_Z ) {
-                printf( "MAIN_parseCommandLine:\n"
-                        "\tsize of file '%s' is %i bytes\n"
-                                    "\texpected size is %i bytes\n",
-                        param->obstacleFilename, (int) fileStat.st_size,
-                        SIZE_X*SIZE_Y*SIZE_Z+(SIZE_Y+1)*SIZE_Z );
-                exit( 1 );
-        }*/
+If that happens, comment out the file-size validation block in:
+
+```text
+benchspec/CPU/619.lbm_s/build/build_base_gem5-x86.0000/main.c
 ```
 
-Then `specmake clean && specmake` and copy the binary to the run directory again.
+Then rebuild that benchmark:
 
-## Benchmarks used
+```bash
+specmake clean
+specmake
+```
 
-| Benchmark | Type | Category | Why |
-|---|---|---|---|
-| 619.lbm_s | Lattice Boltzmann fluid sim | Streaming | Large arrays, sequential sweeps -- benefits from bypass |
-| 605.mcf_s | Vehicle scheduling (min-cost flow) | Pointer-chasing | Random access over large graph -- high cache miss rate |
-| 631.deepsjeng_s | Chess engine | Integer | Moderate working set, mix of hits and misses |
-| 657.xz_s | LZMA compression | Mixed | Combination of sequential and random access patterns |
+Copy the rebuilt binary into the run directory again.
 
-## Troubleshooting
+## After SPEC is ready
 
-If you see `panic: Unrecognized/invalid instruction`, the binary was compiled with
-`-march=native` instead of `-march=x86-64` -- rebuild it (see step 2).
+Go back to the repo root and run:
+
+```bash
+cd /workspace
+bash scripts/build_dsb.sh
+bash scripts/create_checkpoints.sh
+POLICIES_OVERRIDE="lru brrip random tree_plru ship_mem" bash scripts/run_all_l3.sh
+POLICIES_OVERRIDE="dsb_policy0 dsb_policy1" bash scripts/run_all_l3.sh
+```
