@@ -1,6 +1,7 @@
 #include "dsb_rp.hh"
 
 #include <cassert>
+#include <cstdio>
 #include <memory>
 
 #include "params/DSBRP.hh"
@@ -15,8 +16,49 @@ namespace replacement_policy
 {
 
 DSB::DSB(const Params &p)
-  : Base(p)
+  : Base(p),
+    randomPromotion(p.random_promotion),
+    enableBypass(p.enable_bypass),
+    enableAging(p.enable_aging),
+    bypass_counter(p.bypass_counter),
+    virtual_bypass_counter(p.virtual_bypass_counter),
+    minimum_bypass_counter(p.minimum_bypass_counter)
 {
+}
+
+DSB::~DSB()
+{
+  fprintf(stderr,
+    "\n===== DSB INSTRUMENTATION SUMMARY =====\n"
+    "getVictim calls:            %lu\n"
+    "  Real bypass started:      %lu\n"
+    "  Virtual bypass started:   %lu\n"
+    "  No tracking:              %lu\n"
+    "Touch resolutions:          %lu\n"
+    "  Real bypass effective:    %lu  (victim survived hit -> bc--)\n"
+    "  Virtual bypass ineffect:  %lu  (inserted line got hit -> bc++)\n"
+    "Reset resolutions:          %lu\n"
+    "  Real bypass ineffective:  %lu  (bypassed tag returned -> bc++)\n"
+    "  Virtual bypass effective: %lu  (evicted tag returned -> bc--)\n"
+    "bypass_counter increments:  %lu\n"
+    "bypass_counter decrements:  %lu\n"
+    "Invalidate cancellations:   %lu\n"
+    "Final bypass_counter value: %d\n"
+    "========================================\n",
+    stat_getVictimCalls,
+    stat_realBypassStarted,
+    stat_virtualBypassStarted,
+    stat_noTracking,
+    stat_touchResolved,
+    stat_touchRealBypassEffective,
+    stat_touchVirtualBypassIneffective,
+    stat_resetResolved,
+    stat_resetRealBypassIneffective,
+    stat_resetVirtualBypassEffective,
+    stat_bcIncrements,
+    stat_bcDecrements,
+    stat_invalidateCancelled,
+    bypass_counter);
 }
 
 void
@@ -29,6 +71,26 @@ DSB::invalidate(const std::shared_ptr<ReplacementData>& replacement_data)
 
   // Reset reference bit to non-reference list
   replData->referenceBit = 0;
+
+  // Cancel any active tracking episode 
+  // if this line was the competitor and
+  // if we don't skip
+  ReplaceableEntry* entry = replData->entry;
+  if (entry != NULL) {
+    uint32_t set = entry->getSet();
+    uint32_t way = entry->getWay();
+    CompetitorInfo& info = competitorMap[set];
+    if (info.competitorValid && way == info.competitorWay) {
+
+      if (info.isVirtualBypass && info.skipNextInvalidate) {
+        info.skipNextInvalidate = false;
+        return;
+      }
+
+      info = CompetitorInfo{};
+      stat_invalidateCancelled++;
+    }
+  }
 }
 
 void
@@ -53,19 +115,40 @@ DSB::touch(const std::shared_ptr<ReplacementData>& replacement_data) const
     if (competitorInfo.competitorValid) {
       // Bypass was successful
       if (way == competitorInfo.competitorWay) {
+        stat_touchResolved++;
         if (!competitorInfo.isVirtualBypass) {
           // way is the victim
           // this means that we should bypass
           bypass_counter -= 1;
+          stat_bcDecrements++;
+          stat_touchRealBypassEffective++;
+          
+          // if bypass is false then it got turned off while
+          // this episode was in flight
+          if (!bypass) {
+            bypass = true;
+            bypass_counter = minimum_bypass_counter;
+          } else {
+            bypass_counter = std::max(0, bypass_counter);
+          }
         } else {
           // successful virtual bypass
           // inserted line got hit
           // way is the inserted line
           // this means that we shouldn't bypass
           bypass_counter += 1;
+          stat_bcIncrements++;
+          stat_touchVirtualBypassIneffective++;
+
+          // disable bypassing
+          if (bypass_counter > minimum_bypass_counter) {
+            // as per paper,
+            // bypass counter is not used because we have went past minimum probability
+            bypass = false;
+            bypass_counter = minimum_bypass_counter; // used as guard
+          }
         }
-        bypass_counter = std::max(0, std::min(bypass_counter, 6));
-        competitorInfo.competitorValid = false; 
+        competitorInfo.competitorValid = false;
       }
     }
   }
@@ -95,34 +178,83 @@ DSB::reset(const std::shared_ptr<ReplacementData>& replacement_data) const
     Addr tag = static_cast<TaggedEntry*>(entry)->getTag();
 
     if (competitorInfo.competitorValid) {
-      // Bypass was not successful
-      if (competitorInfo.startBypass) {
-        competitorInfo.competitorTag = tag;
-        competitorInfo.startBypass = false;
-      } else if (tag == competitorInfo.competitorTag) {
+      if (tag == competitorInfo.competitorTag) {
+        stat_resetResolved++;
+        // Resolution: bypassed/evicted line came back as a miss
         if (!competitorInfo.isVirtualBypass) {
-          // tag is the inserted line
-          // we shouldn't bypass
+          // Real bypass was ineffective, be less aggressive
           bypass_counter += 1;
+          stat_bcIncrements++;
+          stat_resetRealBypassIneffective++;
+
+          if (bypass_counter > minimum_bypass_counter) {
+            // as per paper,
+            // bypass counter is not used because we have went past minimum probability
+            bypass = false;
+            bypass_counter = minimum_bypass_counter; // used as guard
+          }
         } else {
-          // not successful virtual bypass
-          // inserted line got hit
-          // way is the inserted line
-          // we should bypass
+          // Virtual bypass: evicted line missed, we should have bypassed
           bypass_counter -= 1;
+          stat_bcDecrements++;
+          stat_resetVirtualBypassEffective++;
+
+          // if at 0% bypass, set to minimum bypass
+          // turn on bypassing again
+          if (!bypass) {
+            bypass = true;
+            bypass_counter = minimum_bypass_counter;
+          } else {
+            bypass_counter = std::max(0, bypass_counter);
+          }
         }
-        bypass_counter = std::max(0, std::min(bypass_counter, 6));
-        competitorInfo.competitorValid = false; 
+        competitorInfo.competitorValid = false;
       }
     }
   }
 }
 
 ReplaceableEntry*
-DSB::getVictim(const ReplacementCandidates& candidates) const
+DSB::getVictim(const ReplacementCandidates& candidates, Addr incomingTag) const
 {
   // There must be at least one replacement candidate
   assert(candidates.size() > 0);
+
+  // Early episode resolution: if the incoming line's tag matches the current
+  // competitor tag, resolve the episode NOW so the bypass decision below uses
+  // the updated bypass counter.
+  if (incomingTag != 0) {
+    uint32_t set = candidates[0]->getSet();
+    CompetitorInfo& info = competitorMap[set];
+    if (info.competitorValid && incomingTag == info.competitorTag) {
+      stat_resetResolved++;
+      if (!info.isVirtualBypass) {
+        // Real bypass was ineffective: bypassed line came back as a miss
+        bypass_counter += 1;
+        stat_bcIncrements++;
+        stat_resetRealBypassIneffective++;
+        if (bypass_counter > minimum_bypass_counter) {
+          bypass = false;
+          bypass_counter = minimum_bypass_counter;
+        }
+      } else {
+        // Virtual bypass was effective: evicted line came back as a miss
+        // (we should have bypassed it); for virtual bypass we also fall
+        // through so the incoming line gets a fresh bypass sampling.
+        bypass_counter -= 1;
+        stat_bcDecrements++;
+        stat_resetVirtualBypassEffective++;
+        if (!bypass) {
+          bypass = true;
+          bypass_counter = minimum_bypass_counter;
+        } else {
+          bypass_counter = std::max(0, bypass_counter);
+        }
+      }
+      info.competitorValid = false;
+      // Fall through: the updated bc now informs the new episode decision.
+    }
+  }
 
   // Aging
   // loop through each cache line
@@ -169,8 +301,10 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
   ReplaceableEntry* victim = candidates[0];
   // Age
   if (referenceVictim != NULL) {
-    std::static_pointer_cast<DSBReplData>(
-            referenceVictim->replacementData)->referenceBit = 0;
+    if (enableAging) {
+      std::static_pointer_cast<DSBReplData>(
+              referenceVictim->replacementData)->referenceBit = 0;
+    }
     victim = referenceVictim;
   } 
   if (nonReferenceVictim != NULL) {
@@ -183,36 +317,57 @@ DSB::getVictim(const ReplacementCandidates& candidates) const
   uint32_t victimWay = victim->getWay();
   CompetitorInfo& competitorInfo = competitorMap[victimSet];
 
-  // bypass
-  if (random_mt.random<unsigned>(1, 1u << bypass_counter) == 1) {
-    // don't insert somehow
-    // get the competitor info for the victim
-    // start the bypass
-    competitorInfo.competitorValid = true;
-    competitorInfo.startBypass = true;
-    competitorInfo.competitorWay = victimWay;
-    competitorInfo.isVirtualBypass = false;
-    // set competitorTag in reset()
-  } else {
-    // virtual bypass
-    if (random_mt.random<unsigned>(1, 1u << virtual_bypass_counter) == 1) {
-      competitorInfo.competitorValid = true;
-      // competitor tag is the victim now
-      competitorInfo.startBypass = false;
-      competitorInfo.competitorTag = static_cast<TaggedEntry*>(victim)->getTag();
-      competitorInfo.competitorWay = victimWay;
-      competitorInfo.isVirtualBypass = true;
-    } else {
-      // don't bypass nor virtual bypass
-      // make sure victim's competitorInfo is set to competitor valid false
-      competitorInfo.competitorValid = false;
-    }
+  stat_getVictimCalls++;
+
+  // TODO: print the first 20 calls
+  // check to see how many calls until it converges
+  if (stat_getVictimCalls % 100000 == 0) {
+    fprintf(stderr,
+      "[DSB @ %lu calls] bc=%d isBypassOn=%s| real=%lu virt=%lu notrack=%lu | "
+      "touchRes=%lu(eff=%lu,ineff=%lu) resetRes=%lu(ineff=%lu,eff=%lu) | "
+      "bc++=%lu bc--=%lu inv=%lu\n",
+      stat_getVictimCalls, bypass_counter, bypass ? "true" : "false",
+      stat_realBypassStarted, stat_virtualBypassStarted, stat_noTracking,
+      stat_touchResolved, stat_touchRealBypassEffective,
+      stat_touchVirtualBypassIneffective,
+      stat_resetResolved, stat_resetRealBypassIneffective,
+      stat_resetVirtualBypassEffective,
+      stat_bcIncrements, stat_bcDecrements,
+      stat_invalidateCancelled);
   }
 
-  // TODO: Change the gem5 internals to bypass
+  // bypass
+  if (enableBypass && bypass && incomingTag != 0 &&
+      random_mt.random<unsigned>(1, 1u << bypass_counter) == 1) {
+    // True bypass: tell allocateBlock to skip insertion
+    std::static_pointer_cast<DSBReplData>(
+        victim->replacementData)->shouldBypass = true;
+
+    competitorInfo.competitorValid = true;
+    competitorInfo.competitorTag = incomingTag;
+    competitorInfo.competitorWay = victimWay;
+    competitorInfo.isVirtualBypass = false;
+    competitorInfo.skipNextInvalidate = false;
+    stat_realBypassStarted++;
+
+  } else if (random_mt.random<unsigned>(1, 1u << virtual_bypass_counter) == 1) {
+    // Virtual bypass: normal insertion, but track as if bypassed
+    competitorInfo.competitorValid = true;
+    // Track the evicted victim's tag (resolves when that line returns as a miss)
+    competitorInfo.competitorTag = static_cast<TaggedEntry*>(victim)->getTag();
+    competitorInfo.competitorWay = victimWay;
+    competitorInfo.isVirtualBypass = true;
+    competitorInfo.skipNextInvalidate = true;
+    stat_virtualBypassStarted++;
+
+  } else {
+    // no tracking — leave any active episode undisturbed
+    stat_noTracking++;
+  }
 
   return victim;
 }
+
 
 std::shared_ptr<ReplacementData>
 DSB::instantiateEntry()
