@@ -115,16 +115,6 @@ class Base : public SimObject
     }
 
     /**
-     * Notify the policy that a bypass occurred.
-     *
-     * @param replacement_data Replacement data of the victim that survived.
-     * @param bypassedTag The tag of the line that was bypassed.
-     */
-    virtual void notifyBypass(
-        const std::shared_ptr<ReplacementData>& replacement_data,
-        Addr bypassedTag) {};
-
-    /**
      * Instantiate a replacement data entry.
      *
      * @return A shared pointer to the new replacement data.

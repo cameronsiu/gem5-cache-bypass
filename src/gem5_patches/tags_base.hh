@@ -339,15 +339,6 @@ class BaseTags : public ClockedObject
     virtual void forEachBlk(std::function<void(CacheBlk &)> visitor) = 0;
 
     /**
-     * Notify the replacement policy that a bypass occurred.
-     * Default implementation does nothing; overridden by BaseSetAssoc.
-     *
-     * @param victim The block that survived (was not evicted).
-     * @param addr The address of the bypassed line.
-     */
-    virtual void notifyBypass(CacheBlk* victim, Addr addr) {}
-
-    /**
      * Find if any of the blocks satisfies a condition
      *
      * The visitor should be a std::function that takes a cache block

@@ -205,12 +205,6 @@ class BaseSetAssoc : public BaseTags
         replacementPolicy->reset(blk->replacementData, pkt);
     }
 
-    void notifyBypass(CacheBlk* victim, Addr addr) override
-    {
-        Addr tag = indexingPolicy->extractTag(addr);
-        replacementPolicy->notifyBypass(victim->replacementData, tag);
-    }
-
     void moveBlock(CacheBlk *src_blk, CacheBlk *dest_blk) override;
 
     /**

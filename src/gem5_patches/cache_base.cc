@@ -1644,7 +1644,6 @@ BaseCache::allocateBlock(const PacketPtr pkt, PacketList &writebacks)
         victim->replacementData->shouldBypass) {
         victim->replacementData->shouldBypass = false;
         DPRINTF(CacheRepl, "Bypassing insertion for addr %#llx\n", addr);
-        tags->notifyBypass(victim, addr);
         return nullptr;
     }
 
