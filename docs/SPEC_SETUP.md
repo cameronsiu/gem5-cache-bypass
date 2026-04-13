@@ -47,14 +47,14 @@ runcpu --fake --config gem5-x86 <benchmark_name>
 
 # Compile:
 go <benchmark_name>
-cd build/build_base_mytest-m64.0000
+cd build/build_base_gem5-x86.0000
 specmake
 
 # Copy binary to the run directory:
-cp <binary_name> ../../run/run_base_refspeed_mytest-m64.0000/<binary_name>_base.mytest-m64
+cp <binary_name> ../../run/run_base_refspeed_gem5-x86.0000/<binary_name>_base.gem5-x86
 
 # See the native run command (for reference):
-cd ../../run/run_base_refspeed_mytest-m64.0000
+cd ../../run/run_base_refspeed_gem5-x86.0000
 specinvoke -n
 ```
 
@@ -68,7 +68,7 @@ Comment out the size check in `main.c` (lines ~84-91 in the build directory)
 and rebuild:
 
 ```c
-// In benchspec/CPU/619.lbm_s/build/build_base_mytest-m64.0000/main.c
+// In benchspec/CPU/619.lbm_s/build/build_base_gem5-x86.0000/main.c
 // Comment out the file size validation block (keep the stat() existence check):
 
         if( stat( param->obstacleFilename, &fileStat ) != 0 ) {
