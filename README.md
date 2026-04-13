@@ -1,5 +1,3 @@
-Repo is here: `https://github.com/cameronsiu/gem5-cache-bypass`
-
 # gem5-cache-bypass
 
 This repo contains the DSB replacement policy and the gem5 patches needed for true bypass.
